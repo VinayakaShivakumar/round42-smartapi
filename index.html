@@ -1,10 +1,173 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Round42 SmartAPI</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>ROUND42 Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  Round42 SmartAPI redirect endpoint.
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row">
+          <span class="brand">ROUND42</span>
+          <span class="pill paper">PAPER</span>
+        </div>
+        <div class="subtle" id="sessionLabel">NIFTY · Plan17 R7</div>
+      </div>
+      <div class="top-status">
+        <span class="status-dot ok"></span>
+        <span id="apiStatus">Demo data</span>
+      </div>
+    </header>
+
+    <nav class="tabs" aria-label="Dashboard sections">
+      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="calendar">P&amp;L Calendar</button>
+      <button class="tab" data-view="orders">Orders</button>
+      <button class="tab" data-view="profile">Profile</button>
+    </nav>
+
+    <main>
+      <section id="dashboard" class="view active">
+        <div class="control-banner">
+          <div>
+            <strong>Paper mode</strong>
+            <span>Live controls are locked.</span>
+          </div>
+          <div class="control-actions">
+            <button class="btn secondary" disabled>Pause new trades</button>
+            <button class="btn danger" disabled>Emergency kill</button>
+          </div>
+        </div>
+
+        <div class="cards four">
+          <article class="card metric">
+            <span>Capital X</span>
+            <strong id="capitalValue">₹20,000</strong>
+          </article>
+          <article class="card metric">
+            <span>Today</span>
+            <strong id="todayPnl">₹0</strong>
+          </article>
+          <article class="card metric">
+            <span>This month</span>
+            <strong id="monthPnl">₹0</strong>
+          </article>
+          <article class="card metric">
+            <span>Total trades</span>
+            <strong id="tradeCount">0</strong>
+          </article>
+        </div>
+
+        <div class="cards two">
+          <article class="card">
+            <div class="section-head">
+              <div>
+                <h2>Session status</h2>
+                <p>Strategy and execution health</p>
+              </div>
+            </div>
+            <div id="healthList" class="health-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-head">
+              <div>
+                <h2>Recent trades</h2>
+                <p>Latest paper executions</p>
+              </div>
+              <button class="link-button" data-go="orders">View all</button>
+            </div>
+            <div id="recentTrades" class="trade-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="calendar" class="view">
+        <div class="section-head large">
+          <div>
+            <h1>P&amp;L Calendar</h1>
+            <p>Tap a trading day to inspect its orders and outcome.</p>
+          </div>
+          <div class="month-nav">
+            <button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button>
+            <strong id="monthLabel"></strong>
+            <button id="nextMonth" class="icon-btn" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div class="calendar-card card">
+          <div class="weekday-row">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+        <article id="dayDetail" class="card day-detail"></article>
+      </section>
+
+      <section id="orders" class="view">
+        <div class="section-head large">
+          <div>
+            <h1>Orders &amp; Trades</h1>
+            <p>Entry, exit, charges, MFE/MAE and execution details.</p>
+          </div>
+          <select id="orderDateFilter" class="select"></select>
+        </div>
+        <div class="card table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Side</th><th>Contract</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Net P&amp;L</th><th>Exit reason</th>
+                </tr>
+              </thead>
+              <tbody id="ordersBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="profile" class="view">
+        <div class="section-head large">
+          <div>
+            <h1>Profile</h1>
+            <p>Account, strategy and security summary.</p>
+          </div>
+        </div>
+        <div class="profile-grid">
+          <article class="card profile-card">
+            <div class="avatar">R42</div>
+            <h2>ROUND42 Trader</h2>
+            <p class="subtle">Administrator</p>
+            <div class="profile-lines">
+              <div><span>Mode</span><strong>PAPER</strong></div>
+              <div><span>Strategy</span><strong>Plan17 R7</strong></div>
+              <div><span>Market</span><strong>NIFTY Options</strong></div>
+              <div><span>Capital X</span><strong>₹20,000</strong></div>
+            </div>
+          </article>
+          <article class="card">
+            <h2>Security</h2>
+            <div class="health-list">
+              <div class="health-row"><span>Authentication</span><strong>Cloudflare Access (planned)</strong></div>
+              <div class="health-row"><span>API access</span><strong>Read-only in Paper mode</strong></div>
+              <div class="health-row"><span>Live controls</span><strong>Locked</strong></div>
+              <div class="health-row"><span>Real orders</span><strong>Disabled</strong></div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>ROUND42 · Paper dashboard</span>
+      <span id="lastUpdated"></span>
+    </footer>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
