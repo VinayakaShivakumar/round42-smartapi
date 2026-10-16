@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0b1020" />
-  <title>ROUND42 Dashboard</title>
+  <meta name="theme-color" content="#070b14" />
+  <title>ROUND42 Trader Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -14,17 +14,23 @@
         <div class="brand-row">
           <span class="brand">ROUND42</span>
           <span class="pill paper">PAPER</span>
+          <span class="pill secure">ACCESS PROTECTED</span>
         </div>
-        <div class="subtle" id="sessionLabel">NIFTY · Plan17 R7</div>
+        <div class="subtle" id="sessionLabel">NIFTY · Plan17 R7 · Trader Cockpit</div>
       </div>
       <div class="top-status">
         <span class="status-dot ok"></span>
-        <span id="apiStatus">Demo data</span>
+        <span id="apiStatus">Demo market data</span>
       </div>
     </header>
 
+    <div class="ticker-strip" id="tickerStrip" aria-label="Market snapshot"></div>
+
     <nav class="tabs" aria-label="Dashboard sections">
-      <button class="tab active" data-view="dashboard">Dashboard</button>
+      <button class="tab active" data-view="dashboard">Overview</button>
+      <button class="tab" data-view="market">Market Pulse</button>
+      <button class="tab" data-view="options">Options</button>
+      <button class="tab" data-view="futures">Futures</button>
       <button class="tab" data-view="calendar">P&amp;L Calendar</button>
       <button class="tab" data-view="orders">Orders</button>
       <button class="tab" data-view="profile">Profile</button>
@@ -35,7 +41,7 @@
         <div class="control-banner">
           <div>
             <strong>Paper mode</strong>
-            <span>Live controls are locked.</span>
+            <span>Live controls are locked. Market panels are context-only until the OCI data API is connected.</span>
           </div>
           <div class="control-actions">
             <button class="btn secondary" disabled>Pause new trades</button>
@@ -43,42 +49,43 @@
           </div>
         </div>
 
-        <div class="cards four">
-          <article class="card metric">
-            <span>Capital X</span>
-            <strong id="capitalValue">₹20,000</strong>
-          </article>
-          <article class="card metric">
-            <span>Today</span>
-            <strong id="todayPnl">₹0</strong>
-          </article>
-          <article class="card metric">
-            <span>This month</span>
-            <strong id="monthPnl">₹0</strong>
-          </article>
-          <article class="card metric">
-            <span>Total trades</span>
-            <strong id="tradeCount">0</strong>
-          </article>
+        <div class="cards six metrics-grid">
+          <article class="card metric"><span>Capital X</span><strong id="capitalValue">₹20,000</strong><small>Configured strategy capital</small></article>
+          <article class="card metric"><span>Available funds</span><strong id="availableFunds">—</strong><small>Broker value when live API is wired</small></article>
+          <article class="card metric"><span>Today</span><strong id="todayPnl">₹0</strong><small>Net after charges</small></article>
+          <article class="card metric"><span>This month</span><strong id="monthPnl">₹0</strong><small>Net realised P&amp;L</small></article>
+          <article class="card metric"><span>Total trades</span><strong id="tradeCount">0</strong><small>Closed paper trades</small></article>
+          <article class="card metric"><span>Open risk</span><strong id="openRisk">FLAT</strong><small>Max concurrent position: 1</small></article>
         </div>
 
         <div class="cards two">
           <article class="card">
             <div class="section-head">
-              <div>
-                <h2>Session status</h2>
-                <p>Strategy and execution health</p>
-              </div>
+              <div><h2>Session status</h2><p>Strategy, execution and data-plane health</p></div>
             </div>
             <div id="healthList" class="health-list"></div>
           </article>
 
           <article class="card">
             <div class="section-head">
-              <div>
-                <h2>Recent trades</h2>
-                <p>Latest paper executions</p>
-              </div>
+              <div><h2>Trade state</h2><p>What ROUND42 is currently doing</p></div>
+            </div>
+            <div id="tradeState" class="health-list"></div>
+          </article>
+        </div>
+
+        <div class="cards two">
+          <article class="card">
+            <div class="section-head">
+              <div><h2>Market regime</h2><p>Context only — does not create trade authority</p></div>
+              <button class="link-button" data-go="market">Open pulse</button>
+            </div>
+            <div id="regimeList" class="health-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-head">
+              <div><h2>Recent trades</h2><p>Latest paper executions</p></div>
               <button class="link-button" data-go="orders">View all</button>
             </div>
             <div id="recentTrades" class="trade-list"></div>
@@ -86,22 +93,95 @@
         </div>
       </section>
 
+      <section id="market" class="view">
+        <div class="section-head large">
+          <div><h1>Market Pulse</h1><p>India, global and commodity context for a NIFTY intraday trader.</p></div>
+          <span class="pill demo">DEMO VALUES</span>
+        </div>
+        <div class="info-banner">These are layout/sample values until the OCI market-data API is connected. They have zero trading authority.</div>
+
+        <div class="market-layout">
+          <article class="card">
+            <div class="section-head"><div><h2>India</h2><p>Primary domestic context</p></div></div>
+            <div id="indiaMarkets" class="quote-grid"></div>
+          </article>
+          <article class="card">
+            <div class="section-head"><div><h2>Global risk</h2><p>Overnight / risk-on-risk-off context</p></div></div>
+            <div id="globalMarkets" class="quote-grid"></div>
+          </article>
+          <article class="card">
+            <div class="section-head"><div><h2>Commodities & FX</h2><p>Inflation, currency and risk proxies</p></div></div>
+            <div id="commodityMarkets" class="quote-grid"></div>
+          </article>
+          <article class="card">
+            <div class="section-head"><div><h2>Breadth & positioning</h2><p>Participation and internal market health</p></div></div>
+            <div id="breadthList" class="health-list"></div>
+          </article>
+        </div>
+
+        <article class="card">
+          <div class="section-head"><div><h2>Cross-market read</h2><p>Condensed trader context; informational only</p></div></div>
+          <div id="crossMarketRead" class="signal-grid"></div>
+        </article>
+      </section>
+
+      <section id="options" class="view">
+        <div class="section-head large">
+          <div><h1>NIFTY Options</h1><p>Chain positioning, ATM premiums, Greeks and executable market state.</p></div>
+          <div class="stack-right"><span id="optionExpiry" class="pill neutral">Expiry —</span><span id="atmStrike" class="pill neutral">ATM —</span></div>
+        </div>
+
+        <div class="cards six option-metrics" id="optionMetrics"></div>
+
+        <div class="cards two">
+          <article class="card contract-panel">
+            <div class="section-head"><div><h2>ATM Call</h2><p>CE executable snapshot</p></div><span class="side-badge CE">CE</span></div>
+            <div id="atmCE" class="contract-grid"></div>
+          </article>
+          <article class="card contract-panel">
+            <div class="section-head"><div><h2>ATM Put</h2><p>PE executable snapshot</p></div><span class="side-badge PE">PE</span></div>
+            <div id="atmPE" class="contract-grid"></div>
+          </article>
+        </div>
+
+        <article class="card table-card">
+          <div class="section-head padded"><div><h2>Option chain focus</h2><p>ATM ± 3 strikes · OI / ΔOI / volume / IV / bid / ask</p></div></div>
+          <div class="table-wrap">
+            <table class="chain-table">
+              <thead><tr><th>CE OI</th><th>CE ΔOI</th><th>CE Vol</th><th>CE IV</th><th>CE Bid</th><th>CE Ask</th><th>Strike</th><th>PE Bid</th><th>PE Ask</th><th>PE IV</th><th>PE Vol</th><th>PE ΔOI</th><th>PE OI</th></tr></thead>
+              <tbody id="optionChainBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="futures" class="view">
+        <div class="section-head large">
+          <div><h1>NIFTY Futures</h1><p>Basis, ATP, open interest, market depth and build-up classification.</p></div>
+          <span id="futuresExpiry" class="pill neutral">Expiry —</span>
+        </div>
+
+        <div class="cards six" id="futuresMetrics"></div>
+
+        <div class="cards two">
+          <article class="card">
+            <div class="section-head"><div><h2>Futures positioning</h2><p>Price + OI interpretation</p></div></div>
+            <div id="futuresPositioning" class="health-list"></div>
+          </article>
+          <article class="card">
+            <div class="section-head"><div><h2>Executable market</h2><p>Top-of-book and contract details</p></div></div>
+            <div id="futuresBook" class="health-list"></div>
+          </article>
+        </div>
+      </section>
+
       <section id="calendar" class="view">
         <div class="section-head large">
-          <div>
-            <h1>P&amp;L Calendar</h1>
-            <p>Tap a trading day to inspect its orders and outcome.</p>
-          </div>
-          <div class="month-nav">
-            <button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button>
-            <strong id="monthLabel"></strong>
-            <button id="nextMonth" class="icon-btn" aria-label="Next month">›</button>
-          </div>
+          <div><h1>P&amp;L Calendar</h1><p>Tap a trading day to inspect its orders and outcome.</p></div>
+          <div class="month-nav"><button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="nextMonth" class="icon-btn" aria-label="Next month">›</button></div>
         </div>
         <div class="calendar-card card">
-          <div class="weekday-row">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-          </div>
+          <div class="weekday-row"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </div>
         <article id="dayDetail" class="card day-detail"></article>
@@ -109,20 +189,13 @@
 
       <section id="orders" class="view">
         <div class="section-head large">
-          <div>
-            <h1>Orders &amp; Trades</h1>
-            <p>Entry, exit, charges, MFE/MAE and execution details.</p>
-          </div>
+          <div><h1>Orders &amp; Trades</h1><p>Contract, quantity, fills, charges, MFE/MAE and exit reason.</p></div>
           <select id="orderDateFilter" class="select"></select>
         </div>
         <div class="card table-card">
           <div class="table-wrap">
             <table>
-              <thead>
-                <tr>
-                  <th>Date</th><th>Side</th><th>Contract</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Net P&amp;L</th><th>Exit reason</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Date</th><th>Side</th><th>Contract</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Gross</th><th>Charges</th><th>Net P&amp;L</th><th>MFE</th><th>MAE</th><th>Exit reason</th></tr></thead>
               <tbody id="ordersBody"></tbody>
             </table>
           </div>
@@ -130,41 +203,34 @@
       </section>
 
       <section id="profile" class="view">
-        <div class="section-head large">
-          <div>
-            <h1>Profile</h1>
-            <p>Account, strategy and security summary.</p>
-          </div>
-        </div>
+        <div class="section-head large"><div><h1>Profile &amp; Risk</h1><p>Trading account, strategy, security and control summary.</p></div></div>
         <div class="profile-grid">
           <article class="card profile-card">
-            <div class="avatar">R42</div>
-            <h2>ROUND42 Trader</h2>
-            <p class="subtle">Administrator</p>
+            <div class="avatar">R42</div><h2>ROUND42 Trader</h2><p class="subtle">Administrator</p>
             <div class="profile-lines">
               <div><span>Mode</span><strong>PAPER</strong></div>
               <div><span>Strategy</span><strong>Plan17 R7</strong></div>
-              <div><span>Market</span><strong>NIFTY Options</strong></div>
+              <div><span>Primary market</span><strong>NIFTY Options</strong></div>
               <div><span>Capital X</span><strong>₹20,000</strong></div>
+              <div><span>Concurrent positions</span><strong>1 max</strong></div>
             </div>
           </article>
           <article class="card">
-            <h2>Security</h2>
+            <h2>Security & execution</h2>
             <div class="health-list">
-              <div class="health-row"><span>Authentication</span><strong>Cloudflare Access (planned)</strong></div>
-              <div class="health-row"><span>API access</span><strong>Read-only in Paper mode</strong></div>
-              <div class="health-row"><span>Live controls</span><strong>Locked</strong></div>
-              <div class="health-row"><span>Real orders</span><strong>Disabled</strong></div>
+              <div class="health-row"><span>Website authentication</span><strong class="good">Cloudflare Access + OTP</strong></div>
+              <div class="health-row"><span>API exposure</span><strong>Read-only in Paper mode</strong></div>
+              <div class="health-row"><span>Pause / Kill</span><strong class="warn">UI visible · authority locked</strong></div>
+              <div class="health-row"><span>Real broker orders</span><strong class="good">DISABLED</strong></div>
+              <div class="health-row"><span>Live adapter</span><strong class="good">UNARMED</strong></div>
+              <div class="health-row"><span>Greeks</span><strong class="warn">SHADOW ONLY</strong></div>
             </div>
           </article>
         </div>
       </section>
     </main>
 
-    <footer>
-      <span>ROUND42 · Paper dashboard</span>
-      <span id="lastUpdated"></span>
-    </footer>
+    <footer><span>ROUND42 · Secure trader dashboard</span><span id="lastUpdated"></span></footer>
   </div>
 
   <script src="config.js"></script>
