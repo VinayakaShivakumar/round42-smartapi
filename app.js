@@ -119,6 +119,41 @@ function statusClass(v) {
   return "";
 }
 
+function marketSessionPhase() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
+
+  const get = type => parts.find(x => x.type === type)?.value;
+  const weekday = get("weekday");
+  const hh = Number(get("hour"));
+  const mm = Number(get("minute"));
+  const mins = hh * 60 + mm;
+  const tradingDay = !["Sat", "Sun"].includes(weekday);
+
+  if (!tradingDay || mins >= (15 * 60 + 40)) return "EOD / CLOSED";
+  if (mins < (8 * 60 + 45)) return "PRE-MARKET";
+  return null;
+}
+
+function sessionAwareCollector(raw) {
+  const value = String(raw ?? "—");
+  const upper = value.toUpperCase();
+
+  // Display-only cleanup: do not hide a genuine live-session failure.
+  if (!["OFFLINE", "STALE", "UNAVAILABLE"].includes(upper)) {
+    return [value, statusClass(value)];
+  }
+
+  const phase = marketSessionPhase();
+  if (phase) return [phase, ""];
+  return [value, statusClass(value)];
+}
+
 function num(v) {
   if (v == null || v === "") return null;
   const n = Number(v);
@@ -282,11 +317,14 @@ async function loadData() {
       }))
       .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
 
+    const [r3State, r3Class] = sessionAwareCollector(h.r3_collector);
+    const [futState, futClass] = sessionAwareCollector(h.futures_collector);
+
     const healthRows = [
       ["Strategy", h.strategy ?? "—", statusClass(h.strategy)],
       ["Execution", h.execution ?? "—", statusClass(h.execution)],
-      ["R3 collector", h.r3_collector ?? "—", statusClass(h.r3_collector)],
-      ["Futures collector", h.futures_collector ?? "—", statusClass(h.futures_collector)],
+      ["R3 collector", r3State, r3Class],
+      ["Futures collector", futState, futClass],
       ["Telegram", h.telegram ?? "—", statusClass(h.telegram)],
       ["Greeks", h.greeks ?? "—", statusClass(h.greeks)],
       ["Real orders", h.real_orders ?? "—", statusClass(h.real_orders)],
@@ -332,7 +370,9 @@ async function loadData() {
         marketQuote("GIFT NIFTY", auxGift, "Offshore indication"),
         {
           name: "NIFTY FUT",
-          value: fmtNum(f.ltp ?? f.futures_ltp),
+          value: (f.ltp ?? f.futures_ltp) != null
+            ? fmtNum(f.ltp ?? f.futures_ltp)
+            : (marketSessionPhase() ?? "—"),
           change: num(f.price_change_pct),
           note: "Front month · primary collector"
         },
@@ -350,7 +390,9 @@ async function loadData() {
         marketQuote("USD/INR", auxUsdInr, "FX"),
         {
           name: "NIFTY FUT",
-          value: fmtNum(f.ltp ?? f.futures_ltp),
+          value: (f.ltp ?? f.futures_ltp) != null
+            ? fmtNum(f.ltp ?? f.futures_ltp)
+            : (marketSessionPhase() ?? "—"),
           change: num(f.price_change_pct),
           note: "Front month · primary collector"
         }
