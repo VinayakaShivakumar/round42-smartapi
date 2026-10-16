@@ -1,6 +1,6 @@
 window.ROUND42_CONFIG = {
   // Leave empty until the Cloudflare-protected OCI read-only API is deployed.
-  apiBaseUrl: window.location.origin,,
+  apiBaseUrl: window.location.origin,
   mode: "PAPER",
   strategy: "Plan17 R7",
   capitalX: 20000,
