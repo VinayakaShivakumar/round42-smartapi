@@ -107,8 +107,14 @@ function unwrap(x, key) {
 
 function statusClass(v) {
   const x = String(v ?? "").toUpperCase();
-  if (["READY", "PAPER", "DISABLED", "LOCKED", "FLAT", "NONE"].includes(x)) return "good";
-  if (x.includes("SHADOW") || x.includes("STALE") || x.includes("NOT_PROBED")) return "warn";
+  if (["READY", "PAPER", "DISABLED", "LOCKED", "FLAT", "NONE", "EOD", "CURRENT"].includes(x)) return "good";
+  if (
+    x.includes("SHADOW") ||
+    x.includes("STALE") ||
+    x.includes("DELAYED") ||
+    x.includes("UNAVAILABLE") ||
+    x.includes("NOT_PROBED")
+  ) return "warn";
   if (x.includes("FAIL") || x.includes("ERROR") || x.includes("OFFLINE")) return "bad";
   return "";
 }
@@ -144,16 +150,46 @@ function shortTime(v) {
   return m ? m[1] : String(v);
 }
 
-function marketQuote(name, src, note = "") {
-  const value = src?.value ?? src?.ltp ?? null;
-  const change = src?.change_pct ?? src?.change ?? null;
+function marketQuote(name, src, note = "", valueSuffix = "") {
+  const value = src?.value ?? src?.ltp ?? src?.price ?? null;
+  const change = src?.change_pct ?? src?.percent_change ?? src?.change ?? null;
+  const status = String(src?.status ?? "").toUpperCase();
+
+  let stateNote = "";
+  if (src?.source === "NOT_CONNECTED" || status === "UNAVAILABLE") {
+    stateNote = "Not connected";
+  } else if (status && !["CURRENT", "LIVE"].includes(status)) {
+    stateNote = status.replaceAll("_", " ");
+  }
+
   return {
     name,
-    value: fmtNum(value),
+    value: value == null ? "—" : `${fmtNum(value)}${valueSuffix}`,
     change: num(change),
-    note: src?.source === "NOT_CONNECTED"
-      ? `${note}${note ? " · " : ""}Not connected`
-      : note
+    note: [note, stateNote].filter(Boolean).join(" · ")
+  };
+}
+
+function sectorExtremes(india = {}) {
+  const sectors = [
+    ["NIFTY AUTO", india.NIFTY_AUTO],
+    ["NIFTY IT", india.NIFTY_IT],
+    ["NIFTY FMCG", india.NIFTY_FMCG],
+    ["NIFTY METAL", india.NIFTY_METAL],
+    ["NIFTY PHARMA", india.NIFTY_PHARMA],
+    ["NIFTY REALTY", india.NIFTY_REALTY],
+    ["NIFTY ENERGY", india.NIFTY_ENERGY],
+    ["NIFTY MEDIA", india.NIFTY_MEDIA],
+    ["NIFTY PSU BANK", india.NIFTY_PSU_BANK],
+    ["NIFTY FIN SERVICE", india.NIFTY_FIN_SERVICE]
+  ]
+    .map(([name, row]) => ({ name, change: num(row?.percent_change ?? row?.change_pct) }))
+    .filter(x => x.change != null)
+    .sort((a, b) => b.change - a.change);
+
+  return {
+    leader: sectors.length ? `${sectors[0].name} ${fmtPctLive(sectors[0].change)}` : "—",
+    laggard: sectors.length ? `${sectors.at(-1).name} ${fmtPctLive(sectors.at(-1).change)}` : "—"
   };
 }
 
@@ -188,7 +224,8 @@ async function loadData() {
       profileRaw,
       marketRaw,
       optionsRaw,
-      futuresRaw
+      futuresRaw,
+      contextRaw
     ] = await Promise.all([
       api(ep.summary || "/api/v1/summary"),
       api(ep.daily || "/api/v1/daily"),
@@ -197,7 +234,11 @@ async function loadData() {
       api(ep.profile || "/api/v1/profile"),
       api(ep.market || "/api/v1/market/context"),
       api(ep.options || "/api/v1/market/options"),
-      api(ep.futures || "/api/v1/market/futures")
+      api(ep.futures || "/api/v1/market/futures"),
+      api(ep.context || "/api/v1/context").catch(error => {
+        console.warn("ROUND42 AUX context unavailable; keeping primary dashboard live", error);
+        return null;
+      })
     ]);
 
     const s = unwrap(summaryRaw, "summary");
@@ -206,6 +247,9 @@ async function loadData() {
     const m = unwrap(marketRaw, "market");
     const o = unwrap(optionsRaw, "options");
     const f = unwrap(futuresRaw, "futures");
+    const c = contextRaw ?? {};
+    const ci = c.india ?? {};
+    const cg = c.global ?? {};
 
     const dailyRows = (unwrap(dailyRaw, "daily") || [])
       .map(d => ({
@@ -261,69 +305,96 @@ async function loadData() {
     const nifty = m.nifty ?? m.nifty50 ?? {};
     const breadth = m.breadth ?? {};
 
+    // AUX context is display-only. It never feeds strategy or execution logic.
+    const auxNifty = ci.NIFTY_50 ?? nifty;
+    const auxBank = ci.NIFTY_BANK ?? m.bank_nifty ?? m.bankNifty ?? {};
+    const auxVix = ci.INDIA_VIX ?? m.india_vix ?? m.indiaVix ?? {};
+    const auxGift = c.gift_nifty ?? m.gift_nifty ?? m.giftNifty ?? {};
+    const auxUsdInr = cg.USD_INR ?? m.usd_inr ?? m.usdInr ?? {};
+    const auxCrude = cg.CRUDE_WTI ?? m.crude ?? {};
+    const auxGold = cg.GOLD ?? m.gold ?? {};
+    const auxSilver = cg.SILVER ?? m.silver ?? {};
+    const auxBrent = cg.BRENT ?? m.brent ?? {};
+    const auxDxy = cg.DXY ?? m.dxy ?? {};
+    const auxUs10y = cg.US10Y ?? m.us10y ?? {};
+    const auxSp = cg.SP500_FUT ?? m.sp500_futures ?? {};
+    const auxNasdaq = cg.NASDAQ_FUT ?? m.nasdaq_futures ?? {};
+    const auxDow = cg.DOW_FUT ?? m.dow_futures ?? {};
+    const auxMarket = ci._market ?? {};
+    const sectors = sectorExtremes(ci);
+
+    const niftyDisplayChange = num(auxNifty.percent_change ?? auxNifty.change_pct);
+    const externalConnected = Boolean(contextRaw && c.authority === "DISPLAY_ONLY_READ_ONLY");
+
     const marketState = {
       tickers: [
-        marketQuote("NIFTY 50", nifty, "Spot"),
-        marketQuote("GIFT NIFTY", m.gift_nifty ?? m.giftNifty, "Offshore indication"),
+        marketQuote("NIFTY 50", auxNifty, "NSE spot"),
+        marketQuote("GIFT NIFTY", auxGift, "Offshore indication"),
         {
           name: "NIFTY FUT",
           value: fmtNum(f.ltp ?? f.futures_ltp),
           change: num(f.price_change_pct),
-          note: "Front month"
+          note: "Front month · primary collector"
         },
-        marketQuote("INDIA VIX", m.india_vix ?? m.indiaVix, "Volatility"),
-        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "FX"),
-        marketQuote("CRUDE", m.crude, "MCX"),
-        marketQuote("GOLD", m.gold, "MCX"),
-        marketQuote("SILVER", m.silver, "MCX")
+        marketQuote("INDIA VIX", auxVix, "NSE volatility"),
+        marketQuote("USD/INR", auxUsdInr, "FX"),
+        marketQuote("WTI CRUDE", auxCrude, "NYMEX"),
+        marketQuote("GOLD", auxGold, "COMEX"),
+        marketQuote("SILVER", auxSilver, "COMEX")
       ],
       india: [
-        marketQuote("NIFTY 50", nifty, "Spot"),
-        marketQuote("BANK NIFTY", m.bank_nifty ?? m.bankNifty, "Financial risk"),
-        marketQuote("GIFT NIFTY", m.gift_nifty ?? m.giftNifty, "Offshore indication"),
-        marketQuote("INDIA VIX", m.india_vix ?? m.indiaVix, "Volatility"),
-        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "FX"),
+        marketQuote("NIFTY 50", auxNifty, "NSE spot"),
+        marketQuote("BANK NIFTY", auxBank, "NSE financial risk"),
+        marketQuote("GIFT NIFTY", auxGift, "Offshore indication"),
+        marketQuote("INDIA VIX", auxVix, "NSE volatility"),
+        marketQuote("USD/INR", auxUsdInr, "FX"),
         {
           name: "NIFTY FUT",
           value: fmtNum(f.ltp ?? f.futures_ltp),
           change: num(f.price_change_pct),
-          note: "Front month"
+          note: "Front month · primary collector"
         }
       ],
       global: [
-        marketQuote("S&P 500 FUT", m.sp500_futures, "US risk"),
-        marketQuote("NASDAQ FUT", m.nasdaq_futures, "Tech risk"),
-        marketQuote("DOW FUT", m.dow_futures, "US cyclicals"),
-        marketQuote("DXY", m.dxy, "Dollar index"),
-        marketQuote("US 10Y", m.us10y, "Yield"),
-        marketQuote("BRENT", m.brent, "Global crude")
+        marketQuote("S&P 500 FUT", auxSp, "US risk"),
+        marketQuote("NASDAQ FUT", auxNasdaq, "Tech risk"),
+        marketQuote("DOW FUT", auxDow, "US cyclicals"),
+        marketQuote("DXY", auxDxy, "Dollar index"),
+        marketQuote("US 10Y", auxUs10y, "Yield", "%"),
+        marketQuote("BRENT", auxBrent, "Global crude")
       ],
       commodities: [
-        marketQuote("MCX CRUDE", m.crude, "Energy"),
-        marketQuote("MCX GOLD", m.gold, "Safe haven"),
-        marketQuote("MCX SILVER", m.silver, "Metal / risk"),
-        marketQuote("BRENT", m.brent, "Global crude"),
-        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "Rupee"),
-        marketQuote("DXY", m.dxy, "Dollar")
+        marketQuote("WTI CRUDE", auxCrude, "NYMEX"),
+        marketQuote("GOLD FUT", auxGold, "COMEX"),
+        marketQuote("SILVER FUT", auxSilver, "COMEX"),
+        marketQuote("BRENT", auxBrent, "Global crude"),
+        marketQuote("USD/INR", auxUsdInr, "Rupee"),
+        marketQuote("DXY", auxDxy, "Dollar")
       ],
       breadth: [
         ["NSE advances / declines",
-          breadth.advances != null && breadth.declines != null ? `${breadth.advances} / ${breadth.declines}` : "—", ""],
+          auxMarket.advances != null && auxMarket.declines != null
+            ? `${auxMarket.advances} / ${auxMarket.declines}`
+            : breadth.advances != null && breadth.declines != null
+              ? `${breadth.advances} / ${breadth.declines}`
+              : "—", ""],
         ["NIFTY 50 breadth",
           breadth.nifty50_positive != null ? `${breadth.nifty50_positive} positive` : "—", ""],
-        ["Sector leader", breadth.sector_leader ?? "—", ""],
-        ["Sector laggard", breadth.sector_laggard ?? "—", ""],
+        ["Sector leader", sectors.leader !== "—" ? sectors.leader : breadth.sector_leader ?? "—", "good"],
+        ["Sector laggard", sectors.laggard !== "—" ? sectors.laggard : breadth.sector_laggard ?? "—", "bad"],
         ["Opening gap", fmtPctLive(nifty.opening_gap_pct), ""],
-        ["NIFTY change", fmtPctLive(nifty.change_pct), pctClass(nifty.change_pct)]
+        ["NIFTY change", fmtPctLive(niftyDisplayChange), pctClass(niftyDisplayChange)]
       ],
       crossRead: [
-        { title: "NIFTY session", value: fmtPctLive(nifty.change_pct), detail: "ROUND42 spot capture · display only." },
-        { title: "Futures build-up", value: f.build_up ?? f.buildup ?? "—", detail: "Price + OI classification · display only." },
+        { title: "NIFTY session", value: fmtPctLive(niftyDisplayChange), detail: "NSE official display context · zero strategy authority." },
+        { title: "Futures build-up", value: f.build_up ?? f.buildup ?? "—", detail: "Primary price + OI classification · display only." },
         { title: "Options PCR OI", value: o.pcr_oi != null ? Number(o.pcr_oi).toFixed(2) : "—", detail: "Current captured option-chain context." },
         {
           title: "External context",
-          value: (m.gift_nifty?.value ?? m.giftNifty?.value) == null ? "PENDING" : "CONNECTED",
-          detail: "GIFT/VIX/FX/commodities remain separate from strategy authority."
+          value: externalConnected ? "CONNECTED" : "PENDING",
+          detail: externalConnected
+            ? "AUX context connected. GIFT NIFTY remains unavailable until a validated NSE IX source is connected."
+            : "AUX display context unavailable. Primary trading dashboard remains independent."
         }
       ]
     };
@@ -399,20 +470,24 @@ async function loadData() {
 
     const regimeRows = [
       ["Opening gap", fmtPctLive(nifty.opening_gap_pct), pctClass(nifty.opening_gap_pct)],
-      ["NIFTY change", fmtPctLive(nifty.change_pct), pctClass(nifty.change_pct)],
+      ["NIFTY change", fmtPctLive(niftyDisplayChange), pctClass(niftyDisplayChange)],
       [
         "Volatility",
-        (m.india_vix ?? m.indiaVix)?.value != null
-          ? fmtNum((m.india_vix ?? m.indiaVix).value)
+        (auxVix.price ?? auxVix.value) != null
+          ? `${fmtNum(auxVix.price ?? auxVix.value)}${auxVix.status ? ` · ${auxVix.status}` : ""}`
           : "NOT CONNECTED",
-        (m.india_vix ?? m.indiaVix)?.value != null ? "" : "warn"
+        (auxVix.price ?? auxVix.value) != null ? statusClass(auxVix.status) : "warn"
       ],
       ["Futures positioning", f.build_up ?? f.buildup ?? "—", ""],
       ["Options positioning", o.pcr_oi != null ? `PCR ${Number(o.pcr_oi).toFixed(2)}` : "—", ""],
       [
         "Breadth",
-        breadth.advances != null && breadth.declines != null ? `${breadth.advances} / ${breadth.declines}` : "NOT CONNECTED",
-        breadth.advances != null ? "" : "warn"
+        auxMarket.advances != null && auxMarket.declines != null
+          ? `${auxMarket.advances} / ${auxMarket.declines}`
+          : breadth.advances != null && breadth.declines != null
+            ? `${breadth.advances} / ${breadth.declines}`
+            : "NOT CONNECTED",
+        auxMarket.advances != null || breadth.advances != null ? "" : "warn"
       ]
     ];
 
@@ -445,7 +520,10 @@ async function loadData() {
       calendarCursor = new Date(yy, mm - 1, 1);
     }
 
-    document.getElementById("apiStatus").textContent = "Live data · API connected";
+    document.getElementById("apiStatus").textContent =
+      contextRaw
+        ? "Live data · Primary + AUX context connected"
+        : "Live data · Primary connected · AUX context unavailable";
   } catch (e) {
     console.error("ROUND42 dashboard API load failed", e);
     document.getElementById("apiStatus").textContent = "Live API error";
