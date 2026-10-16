@@ -85,8 +85,14 @@ let state = structuredClone(demo);
 let calendarCursor = new Date("2026-10-01T00:00:00");
 let selectedDate = "2026-10-15";
 const money = v => v == null ? "—" : `${v < 0 ? "-" : ""}₹${Math.abs(Number(v || 0)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-const pctClass = v => Number(v) > 0 ? "good" : Number(v) < 0 ? "bad" : "";
-const pctText = v => `${Number(v) > 0 ? "+" : ""}${Number(v).toFixed(2)}%`;
+const pctClass = v =>
+  v == null || v === "" ? "" :
+  Number(v) > 0 ? "good" :
+  Number(v) < 0 ? "bad" : "";
+
+const pctText = v =>
+  v == null || v === "" ? "—" :
+  `${Number(v) > 0 ? "+" : ""}${Number(v).toFixed(2)}%`;
 
 async function api(path) {
   if (!cfg.apiBaseUrl) throw new Error("demo");
@@ -95,18 +101,354 @@ async function api(path) {
   return r.json();
 }
 
+function unwrap(x, key) {
+  return x?.[key] ?? x?.data ?? x ?? {};
+}
+
+function statusClass(v) {
+  const x = String(v ?? "").toUpperCase();
+  if (["READY", "PAPER", "DISABLED", "LOCKED", "FLAT", "NONE"].includes(x)) return "good";
+  if (x.includes("SHADOW") || x.includes("STALE") || x.includes("NOT_PROBED")) return "warn";
+  if (x.includes("FAIL") || x.includes("ERROR") || x.includes("OFFLINE")) return "bad";
+  return "";
+}
+
+function num(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtNum(v, digits = 2) {
+  const n = num(v);
+  return n == null ? "—" : n.toLocaleString("en-IN", { maximumFractionDigits: digits });
+}
+
+function fmtPctLive(v) {
+  const n = num(v);
+  return n == null ? "—" : `${n > 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function fmtCompactIN(v) {
+  const n = num(v);
+  if (n == null) return "—";
+  const a = Math.abs(n);
+  if (a >= 10000000) return `${(n / 10000000).toFixed(2)} Cr`;
+  if (a >= 100000) return `${(n / 100000).toFixed(2)} L`;
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function shortTime(v) {
+  if (!v) return "—";
+  const m = String(v).match(/T(\d{2}:\d{2})/);
+  return m ? m[1] : String(v);
+}
+
+function marketQuote(name, src, note = "") {
+  const value = src?.value ?? src?.ltp ?? null;
+  const change = src?.change_pct ?? src?.change ?? null;
+  return {
+    name,
+    value: fmtNum(value),
+    change: num(change),
+    note: src?.source === "NOT_CONNECTED"
+      ? `${note}${note ? " · " : ""}Not connected`
+      : note
+  };
+}
+
+function mapContract(x) {
+  if (!x) return {};
+  return {
+    ltp: fmtNum(x.ltp),
+    bid: fmtNum(x.best_bid ?? x.bid),
+    ask: fmtNum(x.best_ask ?? x.ask),
+    oi: fmtCompactIN(x.open_interest ?? x.oi),
+    oiChange: x.oi_change_pct != null ? fmtPctLive(x.oi_change_pct) : "—",
+    volume: fmtCompactIN(x.volume),
+    iv: num(x.iv),
+    delta: x.delta ?? "—",
+    gamma: x.gamma ?? "—",
+    theta: x.theta ?? "—",
+    vega: x.vega ?? "—"
+  };
+}
+
 async function loadData() {
   if (!cfg.apiBaseUrl) return;
+
   const ep = cfg.endpoints || {};
+
   try {
-    const [summary,daily,trades,health,profile,market,options,futures] = await Promise.all([
-      api(ep.summary||"/api/v1/summary"), api(ep.daily||"/api/v1/daily"), api(ep.trades||"/api/v1/trades"), api(ep.health||"/api/v1/health"),
-      api(ep.profile||"/api/v1/profile"), api(ep.market||"/api/v1/market/context"), api(ep.options||"/api/v1/market/options"), api(ep.futures||"/api/v1/market/futures")
+    const [
+      summaryRaw,
+      dailyRaw,
+      tradesRaw,
+      healthRaw,
+      profileRaw,
+      marketRaw,
+      optionsRaw,
+      futuresRaw
+    ] = await Promise.all([
+      api(ep.summary || "/api/v1/summary"),
+      api(ep.daily || "/api/v1/daily"),
+      api(ep.trades || "/api/v1/trades"),
+      api(ep.health || "/api/v1/health"),
+      api(ep.profile || "/api/v1/profile"),
+      api(ep.market || "/api/v1/market/context"),
+      api(ep.options || "/api/v1/market/options"),
+      api(ep.futures || "/api/v1/market/futures")
     ]);
-    state = { ...state, ...summary, daily, trades, health, profile, market, options, futures };
+
+    const s = unwrap(summaryRaw, "summary");
+    const p = unwrap(profileRaw, "profile");
+    const h = unwrap(healthRaw, "health");
+    const m = unwrap(marketRaw, "market");
+    const o = unwrap(optionsRaw, "options");
+    const f = unwrap(futuresRaw, "futures");
+
+    const dailyRows = (unwrap(dailyRaw, "daily") || [])
+      .map(d => ({
+        date: d.session_date ?? d.date,
+        net: num(d.net_pnl ?? d.net) ?? 0,
+        gross: num(d.gross_pnl ?? d.gross) ?? 0,
+        charges: num(d.charges ?? d.charges_estimate) ?? 0,
+        trades: Number(d.trades ?? 0)
+      }))
+      .filter(d => d.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const tradeRows = (unwrap(tradesRaw, "trades") || [])
+      .map(t => ({
+        id: t.trade_id ?? t.id,
+        date: t.session_date ?? t.date,
+        side: t.option_type ?? t.side ?? "—",
+        symbol: t.option_symbol ?? t.symbol ?? "—",
+        qty: Number(t.quantity ?? t.qty ?? 0),
+        entryTime: shortTime(t.entry_ts_ist ?? t.entry_time ?? t.entryTime),
+        entry: num(t.entry_price ?? t.entry),
+        exitTime: shortTime(t.exit_ts_ist ?? t.exit_time ?? t.exitTime),
+        exit: num(t.exit_price ?? t.exit),
+        gross: num(t.gross_pnl ?? t.gross) ?? 0,
+        charges: num(t.charges_estimate ?? t.charges) ?? 0,
+        net: num(t.net_pnl ?? t.pnl ?? t.net) ?? 0,
+        mfe: num(t.max_favourable_pts ?? t.mfe),
+        mae: num(t.max_adverse_pts ?? t.mae),
+        exitReason: t.exit_reason ?? t.exitReason ?? "—"
+      }))
+      .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
+
+    const healthRows = [
+      ["Strategy", h.strategy ?? "—", statusClass(h.strategy)],
+      ["Execution", h.execution ?? "—", statusClass(h.execution)],
+      ["R3 collector", h.r3_collector ?? "—", statusClass(h.r3_collector)],
+      ["Futures collector", h.futures_collector ?? "—", statusClass(h.futures_collector)],
+      ["Telegram", h.telegram ?? "—", statusClass(h.telegram)],
+      ["Greeks", h.greeks ?? "—", statusClass(h.greeks)],
+      ["Real orders", h.real_orders ?? "—", statusClass(h.real_orders)],
+      ["Live controls", h.live_controls ?? "—", statusClass(h.live_controls)]
+    ];
+
+    const tradeStateRows = [
+      ["Position", h.position ?? "FLAT", statusClass(h.position ?? "FLAT")],
+      ["Pending orders", h.pending_orders ?? "NONE", statusClass(h.pending_orders ?? "NONE")],
+      ["Last cross", h.last_cross ?? "—", ""],
+      ["Candidate side", h.candidate_side ?? "—", ""],
+      ["Contradiction", h.contradiction ?? "—", h.contradiction ? "bad" : ""],
+      ["Contract", h.contract ?? "—", ""]
+    ];
+
+    const nifty = m.nifty ?? m.nifty50 ?? {};
+    const breadth = m.breadth ?? {};
+
+    const marketState = {
+      tickers: [
+        marketQuote("NIFTY 50", nifty, "Spot"),
+        marketQuote("GIFT NIFTY", m.gift_nifty ?? m.giftNifty, "Offshore indication"),
+        {
+          name: "NIFTY FUT",
+          value: fmtNum(f.ltp ?? f.futures_ltp),
+          change: num(f.price_change_pct),
+          note: "Front month"
+        },
+        marketQuote("INDIA VIX", m.india_vix ?? m.indiaVix, "Volatility"),
+        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "FX"),
+        marketQuote("CRUDE", m.crude, "MCX"),
+        marketQuote("GOLD", m.gold, "MCX"),
+        marketQuote("SILVER", m.silver, "MCX")
+      ],
+      india: [
+        marketQuote("NIFTY 50", nifty, "Spot"),
+        marketQuote("BANK NIFTY", m.bank_nifty ?? m.bankNifty, "Financial risk"),
+        marketQuote("GIFT NIFTY", m.gift_nifty ?? m.giftNifty, "Offshore indication"),
+        marketQuote("INDIA VIX", m.india_vix ?? m.indiaVix, "Volatility"),
+        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "FX"),
+        {
+          name: "NIFTY FUT",
+          value: fmtNum(f.ltp ?? f.futures_ltp),
+          change: num(f.price_change_pct),
+          note: "Front month"
+        }
+      ],
+      global: [
+        marketQuote("S&P 500 FUT", m.sp500_futures, "US risk"),
+        marketQuote("NASDAQ FUT", m.nasdaq_futures, "Tech risk"),
+        marketQuote("DOW FUT", m.dow_futures, "US cyclicals"),
+        marketQuote("DXY", m.dxy, "Dollar index"),
+        marketQuote("US 10Y", m.us10y, "Yield"),
+        marketQuote("BRENT", m.brent, "Global crude")
+      ],
+      commodities: [
+        marketQuote("MCX CRUDE", m.crude, "Energy"),
+        marketQuote("MCX GOLD", m.gold, "Safe haven"),
+        marketQuote("MCX SILVER", m.silver, "Metal / risk"),
+        marketQuote("BRENT", m.brent, "Global crude"),
+        marketQuote("USD/INR", m.usd_inr ?? m.usdInr, "Rupee"),
+        marketQuote("DXY", m.dxy, "Dollar")
+      ],
+      breadth: [
+        ["NSE advances / declines",
+          breadth.advances != null && breadth.declines != null ? `${breadth.advances} / ${breadth.declines}` : "—", ""],
+        ["NIFTY 50 breadth",
+          breadth.nifty50_positive != null ? `${breadth.nifty50_positive} positive` : "—", ""],
+        ["Sector leader", breadth.sector_leader ?? "—", ""],
+        ["Sector laggard", breadth.sector_laggard ?? "—", ""],
+        ["Opening gap", fmtPctLive(nifty.opening_gap_pct), ""],
+        ["NIFTY change", fmtPctLive(nifty.change_pct), pctClass(nifty.change_pct)]
+      ],
+      crossRead: [
+        { title: "NIFTY session", value: fmtPctLive(nifty.change_pct), detail: "ROUND42 spot capture · display only." },
+        { title: "Futures build-up", value: f.build_up ?? f.buildup ?? "—", detail: "Price + OI classification · display only." },
+        { title: "Options PCR OI", value: o.pcr_oi != null ? Number(o.pcr_oi).toFixed(2) : "—", detail: "Current captured option-chain context." },
+        {
+          title: "External context",
+          value: (m.gift_nifty?.value ?? m.giftNifty?.value) == null ? "PENDING" : "CONNECTED",
+          detail: "GIFT/VIX/FX/commodities remain separate from strategy authority."
+        }
+      ]
+    };
+
+    const optionsState = {
+      expiry: o.expiry ?? "—",
+      atm: o.atm_strike ?? o.atm ?? "—",
+      pcrOi: num(o.pcr_oi ?? o.pcrOi),
+      pcrVol: num(o.pcr_volume ?? o.pcrVol),
+      maxPain: o.max_pain ?? o.maxPain ?? "—",
+      straddle: num(o.atm_straddle ?? o.straddle),
+      impliedMove: num(o.implied_move_pct ?? o.impliedMove),
+      totalCeOi: fmtCompactIN(o.total_ce_oi ?? o.totalCeOi),
+      totalPeOi: fmtCompactIN(o.total_pe_oi ?? o.totalPeOi),
+      ce: mapContract(o.atm_ce ?? o.ce),
+      pe: mapContract(o.atm_pe ?? o.pe),
+      chain: (o.focused_chain ?? o.chain ?? []).map(r => {
+        if (Array.isArray(r)) return r;
+        const ce = r.ce ?? {};
+        const pe = r.pe ?? {};
+        return [
+          fmtCompactIN(ce.open_interest ?? ce.oi),
+          ce.oi_change_pct != null ? fmtPctLive(ce.oi_change_pct) : "—",
+          fmtCompactIN(ce.volume),
+          ce.iv ?? "—",
+          fmtNum(ce.best_bid ?? ce.bid),
+          fmtNum(ce.best_ask ?? ce.ask),
+          r.strike ?? "—",
+          fmtNum(pe.best_bid ?? pe.bid),
+          fmtNum(pe.best_ask ?? pe.ask),
+          pe.iv ?? "—",
+          fmtCompactIN(pe.volume),
+          pe.oi_change_pct != null ? fmtPctLive(pe.oi_change_pct) : "—",
+          fmtCompactIN(pe.open_interest ?? pe.oi)
+        ];
+      })
+    };
+
+    const futuresState = {
+      expiry: f.front_expiry ?? (f.symbol ? f.symbol.replace(/^NIFTY/, "").replace(/FUT$/, "") : "—"),
+      spot: num(f.spot),
+      ltp: num(f.ltp ?? f.futures_ltp),
+      basis: num(f.basis_points ?? f.basis),
+      basisPct: num(f.basis_pct ?? f.basisPct),
+      atp: num(f.broker_atp ?? f.atp),
+      oi: fmtCompactIN(f.open_interest ?? f.oi),
+      oiChange: f.oi_change_pct != null ? fmtPctLive(f.oi_change_pct) : "—",
+      volume: fmtCompactIN(f.volume),
+      bid: num(f.best_bid ?? f.bid),
+      ask: num(f.best_ask ?? f.ask),
+      lotSize: f.lot_size ?? f.lotSize ?? 65,
+      positioning: [
+        ["Build-up", f.build_up ?? f.buildup ?? "—", ""],
+        ["Price change", fmtPctLive(f.price_change_pct), pctClass(f.price_change_pct)],
+        ["OI change", fmtPctLive(f.oi_change_pct), pctClass(f.oi_change_pct)],
+        ["Basis",
+          f.basis_points != null ? `${Number(f.basis_points) > 0 ? "+" : ""}${Number(f.basis_points).toFixed(1)} pts` : "—", ""],
+        ["ATP gap",
+          f.ltp != null && f.broker_atp != null
+            ? `${Number(f.ltp - f.broker_atp) > 0 ? "+" : ""}${Number(f.ltp - f.broker_atp).toFixed(1)} pts`
+            : "—", ""]
+      ],
+      book: [
+        ["Best bid", fmtNum(f.best_bid ?? f.bid), ""],
+        ["Best ask", fmtNum(f.best_ask ?? f.ask), ""],
+        ["Spread", f.spread != null ? Number(f.spread).toFixed(2) : "—", ""],
+        ["Lot size", String(f.lot_size ?? f.lotSize ?? 65), ""],
+        ["Depth source", f.depth_source ?? "—", ""],
+        ["Freshness",
+          f.freshness_seconds != null ? `${Number(f.freshness_seconds).toFixed(1)} sec` : "—", ""]
+      ]
+    };
+
+    const regimeRows = [
+      ["Opening gap", fmtPctLive(nifty.opening_gap_pct), pctClass(nifty.opening_gap_pct)],
+      ["NIFTY change", fmtPctLive(nifty.change_pct), pctClass(nifty.change_pct)],
+      [
+        "Volatility",
+        (m.india_vix ?? m.indiaVix)?.value != null
+          ? fmtNum((m.india_vix ?? m.indiaVix).value)
+          : "NOT CONNECTED",
+        (m.india_vix ?? m.indiaVix)?.value != null ? "" : "warn"
+      ],
+      ["Futures positioning", f.build_up ?? f.buildup ?? "—", ""],
+      ["Options positioning", o.pcr_oi != null ? `PCR ${Number(o.pcr_oi).toFixed(2)}` : "—", ""],
+      [
+        "Breadth",
+        breadth.advances != null && breadth.declines != null ? `${breadth.advances} / ${breadth.declines}` : "NOT CONNECTED",
+        breadth.advances != null ? "" : "warn"
+      ]
+    ];
+
+    state = {
+      ...state,
+      profile: {
+        mode: p.mode ?? s.mode ?? "PAPER",
+        strategy: p.strategy ?? s.strategy ?? "Plan17 R7",
+        capitalX: num(p.capital_x ?? p.capitalX ?? s.capital_x ?? s.capitalX) ?? cfg.capitalX ?? 20000,
+        availableFunds: num(
+          p.available_funds ??
+          p.availableFunds ??
+          s.available_funds ??
+          s.availableFunds
+        )
+      },
+      daily: dailyRows,
+      trades: tradeRows,
+      health: healthRows,
+      tradeState: tradeStateRows,
+      regime: regimeRows,
+      market: marketState,
+      options: optionsState,
+      futures: futuresState
+    };
+
+    if (dailyRows.length) {
+      selectedDate = dailyRows.at(-1).date;
+      const [yy, mm] = selectedDate.split("-").map(Number);
+      calendarCursor = new Date(yy, mm - 1, 1);
+    }
+
     document.getElementById("apiStatus").textContent = "Live data · API connected";
   } catch (e) {
-    document.getElementById("apiStatus").textContent = "Demo market data · API unavailable";
+    console.error("ROUND42 dashboard API load failed", e);
+    document.getElementById("apiStatus").textContent = "Live API error";
   }
 }
 
@@ -131,7 +473,22 @@ function renderMarket(){
   document.getElementById("crossMarketRead").innerHTML=(state.market?.crossRead||[]).map(x=>`<div class="signal-card"><span>${x.title}</span><strong>${x.value}</strong><p>${x.detail}</p></div>`).join("");
 }
 function metricCard(label,value,sub=""){ return `<article class="card metric compact"><span>${label}</span><strong>${value}</strong>${sub?`<small>${sub}</small>`:""}</article>`; }
-function contractGrid(x){ const rows=[["LTP",x.ltp],["Bid",x.bid],["Ask",x.ask],["OI",x.oi],["ΔOI",x.oiChange],["Volume",x.volume],["IV",`${x.iv}%`],["Delta",x.delta],["Gamma",x.gamma],["Theta",x.theta],["Vega",x.vega]]; return rows.map(([k,v])=>`<div class="contract-stat"><span>${k}</span><strong>${v}</strong></div>`).join(""); }
+function contractGrid(x){
+  const rows=[
+    ["LTP",x.ltp??"—"],
+    ["Bid",x.bid??"—"],
+    ["Ask",x.ask??"—"],
+    ["OI",x.oi??"—"],
+    ["ΔOI",x.oiChange??"—"],
+    ["Volume",x.volume??"—"],
+    ["IV",x.iv==null?"—":`${x.iv}%`],
+    ["Delta",x.delta??"—"],
+    ["Gamma",x.gamma??"—"],
+    ["Theta",x.theta??"—"],
+    ["Vega",x.vega??"—"]
+  ];
+  return rows.map(([k,v])=>`<div class="contract-stat"><span>${k}</span><strong>${v}</strong></div>`).join("");
+}
 function renderOptions(){
   const o=state.options||{}; document.getElementById("optionExpiry").textContent=`Expiry ${o.expiry||"—"}`; document.getElementById("atmStrike").textContent=`ATM ${o.atm||"—"}`;
   document.getElementById("optionMetrics").innerHTML=[metricCard("PCR OI",o.pcrOi??"—","Put/Call open interest"),metricCard("PCR Volume",o.pcrVol??"—","Put/Call traded volume"),metricCard("Max pain",o.maxPain??"—","Current expiry"),metricCard("ATM straddle",o.straddle??"—","CE + PE premium"),metricCard("Implied move",o.impliedMove!=null?`${o.impliedMove}%`:"—","Expiry-based estimate"),metricCard("PE vs CE OI",`${o.totalPeOi||"—"} / ${o.totalCeOi||"—"}`,"Put / Call total OI")].join("");
