@@ -1,9 +1,10 @@
-// ROUND42_CLOUDFLARE_DAILY_HEALTH_V1
+// ROUND42_CLOUDFLARE_DAILY_HEALTH_PROXY_ALIAS_R3
 // Read-only Pages Function: retrieve the already-generated OCI health snapshot
 // through the existing PRIVATE Cloudflare service binding (not public OCI access).
 // This does not call the broker or modify files, timers, or strategy state.
 
 const POSSIBLE_PATHS = [
+  '/api/v1/system-health-snapshot',
   '/round42-system-health.json',
   '/dashboard/round42-system-health.json',
   '/ui/round42-system-health.json',
@@ -69,7 +70,7 @@ export async function onRequestGet({ request, env }) {
     return respond(result.data);
   } catch (_) {
     rememberedPath=null;
-    return respond({ok:false,reason:'OCI_READINESS_SNAPSHOT_NOT_EXPOSED_BY_PRIVATE_PROXY'},503);
+    return respond({ok:false,reason:'OCI_READINESS_SNAPSHOT_NOT_EXPOSED_BY_PRIVATE_PROXY_ALIAS_R3'},503);
   }
 }
 
