@@ -38,6 +38,19 @@
 
     <main>
       <section id="dashboard" class="view active">
+        <!-- ROUND42_CLOUDFLARE_DAILY_HEALTH_V1: display only; no order authority -->
+        <article class="card daily-health" id="dailyHealthPanel" aria-label="Daily Round42 system health">
+          <div class="daily-health-heading">
+            <div>
+              <span class="daily-health-eyebrow">ROUND42 · DAILY SYSTEM HEALTH</span>
+              <h2 id="dailyHealthDate">Checking today's IST session…</h2>
+              <p id="dailyHealthChecked">Waiting for a verified system snapshot</p>
+            </div>
+            <span class="daily-health-badge dh-neutral" id="dailyHealthOverall" role="status" aria-live="polite">VERIFYING</span>
+          </div>
+          <div class="daily-health-grid" id="dailyHealthRows" aria-live="off"></div>
+          <p class="daily-health-note" id="dailyHealthNote">Health checks do not send trades or change strategy settings.</p>
+        </article>
         <div class="control-banner">
           <div>
             <strong>Paper mode</strong>
@@ -235,5 +248,6 @@
 
   <script src="config.js"></script>
   <script src="app.js"></script>
+  <script defer src="daily-health.js"></script>
 </body>
 </html>
