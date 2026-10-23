@@ -25,3 +25,8 @@
 .daily-health-note{margin-top:8px}
 @media(max-width:1000px){.daily-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.daily-health-grid{grid-template-columns:1fr}.daily-health{padding:15px}.daily-health-heading{align-items:flex-start}.daily-health-item{padding:10px}}
+
+/* ROUND42_DASHBOARD_FAIL_CLOSED_R2: header indicator mirrors API verification */
+.status-dot.warning{background:var(--warn);box-shadow:0 0 8px rgba(247,201,72,.32)}
+.status-dot.error{background:var(--bad);box-shadow:0 0 8px rgba(255,107,107,.35)}
+.status-dot:not(.ok):not(.warning):not(.error){background:var(--muted)}

@@ -1,89 +1,30 @@
 const cfg = window.ROUND42_CONFIG || {};
 
-const demo = {
-  profile: { mode: "PAPER", strategy: "Plan17 R7", capitalX: 20000, availableFunds: null },
-  health: [
-    ["Strategy", "READY", "good"], ["Execution", "PAPER", "good"], ["R3 collector", "READY", "good"],
-    ["Futures collector", "READY", "good"], ["Telegram", "READY", "good"], ["Greeks", "SHADOW", "warn"],
-    ["Real orders", "DISABLED", "good"], ["Live controls", "LOCKED", "good"]
-  ],
-  tradeState: [
-    ["Position", "FLAT", "good"], ["Pending orders", "NONE", "good"], ["Last cross", "—", ""],
-    ["Candidate side", "—", ""], ["Contradiction", "—", ""], ["Contract", "—", ""]
-  ],
-  regime: [
-    ["Opening gap", "+0.18%", "good"], ["Trend", "MIXED", "warn"], ["Volatility", "NORMAL", ""],
-    ["Futures positioning", "LONG BUILD-UP", "good"], ["Options positioning", "NEUTRAL", ""], ["Breadth", "POSITIVE", "good"]
-  ],
-  daily: [
-    { date: "2026-10-12", net: 820, gross: 910, charges: 90, trades: 1 },
-    { date: "2026-10-13", net: -430, gross: -340, charges: 90, trades: 1 },
-    { date: "2026-10-14", net: 0, gross: 0, charges: 0, trades: 0 },
-    { date: "2026-10-15", net: 0, gross: 0, charges: 0, trades: 0 }
-  ],
-  trades: [
-    { id: "DEMO-001", date: "2026-10-12", side: "CE", symbol: "NIFTY DEMO CE", qty: 65, entryTime: "10:06", entry: 118.40, exitTime: "10:42", exit: 132.40, gross: 910, charges: 90, net: 820, mfe: 18.6, mae: -3.1, exitReason: "TRAIL_EXIT" },
-    { id: "DEMO-002", date: "2026-10-13", side: "PE", symbol: "NIFTY DEMO PE", qty: 65, entryTime: "11:18", entry: 105.20, exitTime: "11:33", exit: 99.97, gross: -340, charges: 90, net: -430, mfe: 2.2, mae: -7.4, exitReason: "PROTECTIVE_STOP" }
-  ],
-  market: {
-    tickers: [
-      { name:"NIFTY 50", value:"23,040.40", change:0.42 }, { name:"GIFT NIFTY", value:"23,086.50", change:0.31 },
-      { name:"NIFTY FUT", value:"23,071.80", change:0.47 }, { name:"INDIA VIX", value:"12.84", change:-1.26 },
-      { name:"USD/INR", value:"83.17", change:0.08 }, { name:"CRUDE", value:"6,142", change:-0.54 },
-      { name:"GOLD", value:"76,420", change:0.36 }, { name:"SILVER", value:"92,180", change:0.58 }
-    ],
-    india: [
-      { name:"NIFTY 50", value:"23,040.40", change:0.42, note:"Spot" }, { name:"BANK NIFTY", value:"52,118.70", change:0.31, note:"Financial risk" },
-      { name:"GIFT NIFTY", value:"23,086.50", change:0.31, note:"Offshore indication" }, { name:"INDIA VIX", value:"12.84", change:-1.26, note:"Volatility" },
-      { name:"USD/INR", value:"83.17", change:0.08, note:"FX" }, { name:"NIFTY FUT", value:"23,071.80", change:0.47, note:"Front-month" }
-    ],
-    global: [
-      { name:"S&P 500 FUT", value:"5,921.25", change:0.24, note:"US risk" }, { name:"NASDAQ FUT", value:"20,817.50", change:0.38, note:"Tech risk" },
-      { name:"DOW FUT", value:"43,210", change:0.17, note:"US cyclicals" }, { name:"DXY", value:"103.42", change:-0.11, note:"Dollar index" },
-      { name:"US 10Y", value:"4.18%", change:0.03, note:"Yield" }, { name:"BRENT", value:"74.18", change:-0.41, note:"Global crude" }
-    ],
-    commodities: [
-      { name:"MCX CRUDE", value:"6,142", change:-0.54, note:"Energy" }, { name:"MCX GOLD", value:"76,420", change:0.36, note:"Safe haven" },
-      { name:"MCX SILVER", value:"92,180", change:0.58, note:"Metal / risk" }, { name:"BRENT", value:"74.18", change:-0.41, note:"Global crude" },
-      { name:"USD/INR", value:"83.17", change:0.08, note:"Rupee" }, { name:"DXY", value:"103.42", change:-0.11, note:"Dollar" }
-    ],
-    breadth: [
-      ["NSE advances / declines", "1,248 / 782", "good"], ["NIFTY 50 breadth", "34 ADV / 16 DEC", "good"],
-      ["Sector leader", "AUTO +1.1%", "good"], ["Sector laggard", "IT -0.4%", "bad"],
-      ["Opening gap", "+41.3 pts", "good"], ["GIFT vs prev close", "+0.28%", "good"]
-    ],
-    crossRead: [
-      { title:"Risk tone", value:"MILD RISK-ON", detail:"GIFT positive, US futures positive, VIX softer." },
-      { title:"Energy impulse", value:"SOFT", detail:"Crude lower; reduces immediate inflation pressure." },
-      { title:"Currency", value:"NEUTRAL", detail:"USD/INR only mildly firmer; DXY slightly softer." },
-      { title:"Metals", value:"FIRM", detail:"Gold and silver positive; watch defensive demand." }
-    ]
-  },
-  options: {
-    expiry:"22-Oct-2026", atm:23050, pcrOi:1.07, pcrVol:0.94, maxPain:23000, straddle:248.6, impliedMove:1.08,
-    totalCeOi:"3.42 Cr", totalPeOi:"3.67 Cr", totalCeOiChange:"+18.2 L", totalPeOiChange:"+22.7 L",
-    ce:{ ltp:119.4, bid:119.25, ask:119.55, oi:"18.4 L", oiChange:"+1.6 L", volume:"42.8 L", iv:12.9, delta:0.51, gamma:0.0018, theta:-8.7, vega:12.4 },
-    pe:{ ltp:129.2, bid:129.05, ask:129.35, oi:"20.1 L", oiChange:"+2.2 L", volume:"39.7 L", iv:13.4, delta:-0.49, gamma:0.0018, theta:-8.9, vega:12.5 },
-    chain:[
-      ["11.8 L","+0.4 L","18.1 L","12.4",91.2,91.5,22900,58.1,58.4,"14.6","12.9 L","+0.8 L","15.6 L"],
-      ["13.9 L","+0.7 L","22.4 L","12.5",105.6,105.9,22950,72.5,72.8,"14.1","17.2 L","+1.1 L","18.7 L"],
-      ["16.7 L","+1.0 L","31.0 L","12.7",113.8,114.1,23000,98.8,99.1,"13.7","25.9 L","+2.8 L","31.4 L"],
-      ["18.4 L","+1.6 L","42.8 L","12.9",119.25,119.55,23050,129.05,129.35,"13.4","39.7 L","+2.2 L","20.1 L"],
-      ["29.8 L","+3.6 L","28.3 L","13.2",88.0,88.3,23100,157.4,157.8,"13.0","24.0 L","+1.4 L","17.6 L"],
-      ["19.6 L","+1.9 L","17.9 L","13.8",65.4,65.7,23150,194.1,194.7,"12.8","13.1 L","+0.7 L","13.9 L"],
-      ["15.2 L","+1.2 L","11.7 L","14.3",47.8,48.1,23200,234.5,235.2,"12.7","10.3 L","+0.3 L","11.2 L"]
-    ]
-  },
-  futures: {
-    expiry:"29-Oct-2026", spot:23040.4, ltp:23071.8, basis:31.4, basisPct:0.136, atp:23052.6, oi:"1.91 Cr", oiChange:"+4.8%", volume:"1.42 Cr", bid:23071.5, ask:23072.0, lotSize:65,
-    positioning:[["Build-up","LONG BUILD-UP","good"],["Price change","+0.47%","good"],["OI change","+4.8%","good"],["Basis","+31.4 pts","good"],["ATP gap","+19.2 pts","good"]],
-    book:[["Best bid","23,071.50"],["Best ask","23,072.00"],["Spread","0.50"],["Lot size","65"],["Depth source","SDK direct"],["Freshness","< 2 sec"]]
-  }
+// ROUND42_DASHBOARD_FAIL_CLOSED_R2: no hard-coded market, P&L, or trade examples.
+// An unavailable API must never be represented as a real price or realised profit.
+const istDateKey = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const get = type => parts.find(x => x.type === type)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
 };
-
-let state = structuredClone(demo);
-let calendarCursor = new Date("2026-10-01T00:00:00");
-let selectedDate = "2026-10-15";
+const blankQuote = name => ({name, value:'—',change:null,note:'Source unverified'});
+const blankState = () => ({
+  profile: { mode:'PAPER',strategy:'Plan17 R7',capitalX:Number(cfg.capitalX)||20000,availableFunds:null },
+  health: [['Strategy','NOT VERIFIED','warn'],['R3 collector','NOT VERIFIED','warn'],
+           ['Futures collector','NOT VERIFIED','warn']],
+  tradeState: [['Position','NOT VERIFIED','warn'],['Pending orders','NOT VERIFIED','warn']],
+  regime: [], daily: [], trades: [],
+  market: {tickers:['NIFTY 50','GIFT NIFTY','NIFTY FUT','INDIA VIX',
+            'USD/INR','WTI CRUDE','GOLD','SILVER'].map(blankQuote),
+           india:[],global:[],commodities:[],breadth:[],crossRead:[]},
+  options:{},futures:{},availability:{},verifiedAt:null
+});
+let state = blankState();
+const currentIST = istDateKey();
+let calendarCursor = new Date(Number(currentIST.slice(0,4)),Number(currentIST.slice(5,7))-1,1);
+let selectedDate = currentIST;
 const money = v => v == null ? "—" : `${v < 0 ? "-" : ""}₹${Math.abs(Number(v || 0)).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 const pctClass = v =>
   v == null || v === "" ? "" :
@@ -95,10 +36,21 @@ const pctText = v =>
   `${Number(v) > 0 ? "+" : ""}${Number(v).toFixed(2)}%`;
 
 async function api(path) {
-  if (!cfg.apiBaseUrl) throw new Error("demo");
-  const r = await fetch(`${cfg.apiBaseUrl}${path}`, { credentials:"include", headers:{Accept:"application/json"} });
-  if (!r.ok) throw new Error(`API ${r.status}`);
-  return r.json();
+  if (!cfg.apiBaseUrl) throw new Error('API base URL is not configured');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 4500);
+  try {
+    const r = await fetch(`${cfg.apiBaseUrl}${path}`, {
+      credentials:'include', cache:'no-store', signal:controller.signal,
+      headers:{Accept:'application/json'}
+    });
+    if (!r.ok) throw new Error(`API ${r.status} at ${path}`);
+    const value = await r.json();
+    if (!value || value.ok === false) throw new Error(`API reported unavailable at ${path}`);
+    return value;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function unwrap(x, key) {
@@ -246,35 +198,44 @@ function mapContract(x) {
 }
 
 async function loadData() {
-  if (!cfg.apiBaseUrl) return;
-
   const ep = cfg.endpoints || {};
 
   try {
-    const [
-      summaryRaw,
-      dailyRaw,
-      tradesRaw,
-      healthRaw,
-      profileRaw,
-      marketRaw,
-      optionsRaw,
-      futuresRaw,
-      contextRaw
-    ] = await Promise.all([
-      api(ep.summary || "/api/v1/summary"),
-      api(ep.daily || "/api/v1/daily"),
-      api(ep.trades || "/api/v1/trades"),
-      api(ep.health || "/api/v1/health"),
-      api(ep.profile || "/api/v1/profile"),
-      api(ep.market || "/api/v1/market/context"),
-      api(ep.options || "/api/v1/market/options"),
-      api(ep.futures || "/api/v1/market/futures"),
-      api(ep.context || "/api/v1/context").catch(error => {
-        console.warn("ROUND42 AUX context unavailable; keeping primary dashboard live", error);
-        return null;
-      })
-    ]);
+    const routes = [
+      ['summary', ep.summary || '/api/v1/summary'],
+      ['daily', ep.daily || '/api/v1/daily'],
+      ['trades', ep.trades || '/api/v1/trades'],
+      ['health', ep.health || '/api/v1/health'],
+      ['profile', ep.profile || '/api/v1/profile'],
+      ['market', ep.market || '/api/v1/market/context'],
+      ['options', ep.options || '/api/v1/market/options'],
+      ['futures', ep.futures || '/api/v1/market/futures'],
+      ['context', ep.context || '/api/v1/context']
+    ];
+    // A failure in one read-only endpoint must not erase other available panels.
+    const settled = await Promise.allSettled(routes.map(([,route]) => api(route)));
+    const responses = {};
+    const availability = {};
+    const failures = [];
+    routes.forEach(([name], i) => {
+      const r = settled[i];
+      const verified = r.status === 'fulfilled';
+      availability[name] = verified;
+      responses[name] = verified ? r.value : null;
+      if (!verified) {
+        failures.push(name);
+        console.warn(`ROUND42 read-only endpoint ${name} unavailable:`, r.reason);
+      }
+    });
+    const summaryRaw = responses.summary ?? {summary:{}};
+    const dailyRaw   = responses.daily   ?? {daily:[]};
+    const tradesRaw  = responses.trades  ?? {trades:[]};
+    const healthRaw  = responses.health  ?? {health:{}};
+    const profileRaw = responses.profile ?? {profile:{}};
+    const marketRaw  = responses.market  ?? {market:{}};
+    const optionsRaw = responses.options ?? {options:{}};
+    const futuresRaw = responses.futures ?? {futures:{}};
+    const contextRaw = responses.context;
 
     const s = unwrap(summaryRaw, "summary");
     const p = unwrap(profileRaw, "profile");
@@ -332,8 +293,8 @@ async function loadData() {
     ];
 
     const tradeStateRows = [
-      ["Position", h.position ?? "FLAT", statusClass(h.position ?? "FLAT")],
-      ["Pending orders", h.pending_orders ?? "NONE", statusClass(h.pending_orders ?? "NONE")],
+      ["Position", h.position ?? "NOT VERIFIED", statusClass(h.position ?? "NOT VERIFIED")],
+      ["Pending orders", h.pending_orders ?? "NOT VERIFIED", statusClass(h.pending_orders ?? "NOT VERIFIED")],
       ["Last cross", h.last_cross ?? "—", ""],
       ["Candidate side", h.candidate_side ?? "—", ""],
       ["Contradiction", h.contradiction ?? "—", h.contradiction ? "bad" : ""],
@@ -553,22 +514,39 @@ async function loadData() {
       regime: regimeRows,
       market: marketState,
       options: optionsState,
-      futures: futuresState
+      futures: futuresState,
+      availability,
+      verifiedAt: Object.entries(availability).some(([key,ok])=>ok && key !== 'context')
+        ? new Date() : null
     };
 
-    if (dailyRows.length) {
-      selectedDate = dailyRows.at(-1).date;
-      const [yy, mm] = selectedDate.split("-").map(Number);
-      calendarCursor = new Date(yy, mm - 1, 1);
+    // The default selection is the current IST session, not the last recorded trade day.
+    if (!state.daily.some(d => d.date === selectedDate) && dailyRows.length) {
+      selectedDate = istDateKey();
     }
 
-    document.getElementById("apiStatus").textContent =
-      contextRaw
-        ? "Live data · Primary + AUX context connected"
-        : "Live data · Primary connected · AUX context unavailable";
+    const core = routes.slice(0,8).map(([name])=>name);
+    const coreGood = core.filter(k=>availability[k]);
+    const statusEl = document.getElementById('apiStatus');
+    const dot = document.querySelector('.top-status .status-dot');
+    if (coreGood.length === 8) {
+      statusEl.textContent = availability.context
+        ? 'Live API connected · Primary + AUX'
+        : 'Primary API connected · AUX unavailable';
+      if (dot) dot.className = 'status-dot ok';
+    } else if (coreGood.length) {
+      statusEl.textContent = `Partial API data (${coreGood.length}/8) · Unavailable: ${failures.filter(x=>x!=='context').join(', ')}`;
+      if (dot) dot.className = 'status-dot warning';
+    } else {
+      statusEl.textContent = 'LIVE API UNAVAILABLE · Values not verified';
+      if (dot) dot.className = 'status-dot error';
+    }
   } catch (e) {
-    console.error("ROUND42 dashboard API load failed", e);
-    document.getElementById("apiStatus").textContent = "Live API error";
+    console.error('ROUND42 dashboard data processing failed', e);
+    state = blankState();
+    document.getElementById('apiStatus').textContent = 'LIVE API UNAVAILABLE · No verified values';
+    const dot = document.querySelector('.top-status .status-dot');
+    if (dot) dot.className = 'status-dot error';
   }
 }
 
@@ -577,11 +555,21 @@ function renderTickerStrip(){
 }
 function healthHTML(rows){ return (rows||[]).map(([k,v,c])=>`<div class="health-row"><span>${k}</span><strong class="${c||""}">${v}</strong></div>`).join(""); }
 function renderDashboard(){
-  const total=state.daily.reduce((s,d)=>s+Number(d.net||0),0); const today=state.daily.at(-1)?.net||0;
+  const dailyVerified=state.availability?.daily===true;
+  const tradesVerified=state.availability?.trades===true;
+  const healthVerified=state.availability?.health===true;
+  const todayKey=istDateKey();
+  const monthKey=todayKey.slice(0,7);
+  const today=dailyVerified ? (state.daily.find(d=>d.date===todayKey)?.net ?? 0) : null;
+  const month=dailyVerified ? state.daily.filter(d=>d.date?.startsWith(monthKey))
+    .reduce((sum,d)=>sum+Number(d.net||0),0) : null;
   document.getElementById("capitalValue").textContent=money(state.profile?.capitalX ?? cfg.capitalX ?? 20000);
   document.getElementById("availableFunds").textContent=money(state.profile?.availableFunds);
-  document.getElementById("todayPnl").textContent=money(today); document.getElementById("monthPnl").textContent=money(total);
-  document.getElementById("tradeCount").textContent=state.trades.length; document.getElementById("openRisk").textContent="FLAT";
+  document.getElementById("todayPnl").textContent=money(today);
+  document.getElementById("monthPnl").textContent=money(month);
+  document.getElementById("tradeCount").textContent=tradesVerified ? state.trades.length : '—';
+  const position=state.tradeState.find(row=>row[0]==='Position')?.[1];
+  document.getElementById("openRisk").textContent=healthVerified ? (position||'—') : '—';
   document.getElementById("healthList").innerHTML=healthHTML(state.health); document.getElementById("tradeState").innerHTML=healthHTML(state.tradeState);
   document.getElementById("regimeList").innerHTML=healthHTML(state.regime);
   document.getElementById("recentTrades").innerHTML=state.trades.slice(-4).reverse().map(t=>`<div class="trade-item"><span class="side-badge ${t.side}">${t.side}</span><div class="trade-meta"><strong>${t.symbol}</strong><span>${t.date} · ${t.entryTime} → ${t.exitTime}</span></div><span class="pnl ${t.net>=0?"good":"bad"}">${money(t.net)}</span></div>`).join("")||`<div class="subtle">No trades yet.</div>`;
@@ -634,7 +622,30 @@ function renderDayDetail(){
 function renderOrders(){
   const filter=document.getElementById("orderDateFilter")?.value||"ALL",rows=state.trades.filter(t=>filter==="ALL"||t.date===filter); document.getElementById("ordersBody").innerHTML=rows.map(t=>`<tr><td>${t.date}</td><td><span class="side-badge ${t.side}">${t.side}</span></td><td>${t.symbol}</td><td>${t.qty}</td><td>${t.entryTime}<br><span class="subtle">${t.entry}</span></td><td>${t.exitTime}<br><span class="subtle">${t.exit}</span></td><td>${money(t.gross)}</td><td>${money(t.charges)}</td><td class="${t.net>=0?"good":"bad"}"><strong>${money(t.net)}</strong></td><td>${t.mfe}</td><td>${t.mae}</td><td>${t.exitReason}</td></tr>`).join("")||`<tr><td colspan="12" class="subtle">No trades for this filter.</td></tr>`;
 }
-function setupFilters(){const dates=[...new Set(state.trades.map(t=>t.date))].sort().reverse(),s=document.getElementById("orderDateFilter");s.innerHTML=`<option value="ALL">All dates</option>`+dates.map(d=>`<option value="${d}">${d}</option>`).join("");s.addEventListener("change",renderOrders);}
+function refreshFilters(){
+  const s=document.getElementById('orderDateFilter');
+  const previous=s.value||'ALL';
+  const dates=[...new Set(state.trades.map(t=>t.date).filter(Boolean))].sort().reverse();
+  s.innerHTML='<option value="ALL">All dates</option>'+dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  s.value=dates.includes(previous)?previous:'ALL';
+}
+function setupFilters(){refreshFilters();document.getElementById('orderDateFilter').addEventListener('change',renderOrders);}
 function setupNav(){document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===t.dataset.view));}));document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>document.querySelector(`.tab[data-view="${b.dataset.go}"]`).click()));document.getElementById("prevMonth").addEventListener("click",()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);renderCalendar();});document.getElementById("nextMonth").addEventListener("click",()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar();});}
-function renderAll(){renderTickerStrip();renderDashboard();renderMarket();renderOptions();renderFutures();renderCalendar();renderDayDetail();renderOrders();document.getElementById("lastUpdated").textContent=`Updated ${new Date().toLocaleString("en-IN")}`;}
-(async function boot(){setupNav();await loadData();setupFilters();renderAll();})();
+function renderAll(){
+  renderTickerStrip();renderDashboard();renderMarket();renderOptions();renderFutures();
+  renderCalendar();renderDayDetail();renderOrders();
+  const t=state.verifiedAt;
+  document.getElementById('lastUpdated').textContent = t
+    ? `API last responded ${t.toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST · Verify individual panels`
+    : 'No live API data verified';
+}
+(async function boot(){
+  setupNav();setupFilters();await loadData();refreshFilters();renderAll();
+  let polling=false;
+  setInterval(async()=>{
+    if(polling) return;
+    polling=true;
+    try {await loadData();refreshFilters();renderAll();}
+    finally {polling=false;}
+  },Math.max(5000,Number(cfg.refreshMs)||5000));
+})();
