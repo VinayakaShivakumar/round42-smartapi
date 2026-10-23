@@ -18,6 +18,7 @@
   const timeFmt = new Intl.DateTimeFormat('en-GB', {
     timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false
   });
+  const policy = window.ROUND42_POLL_POLICY;
   const mandatory = ['r3','futures','r7','context'];
   const rowLabels = {
     r3:'R3 market data', futures:'NIFTY futures', r7:'Plan17 R7 paper',
@@ -51,10 +52,12 @@
     if (['PENDING','STARTING','WARNING','UNKNOWN','CHECK_HISTORY'].includes(value)) return 'warn';
     return 'neutral';
   }
-  function unverified(message) {
+  function unverified(message, networkAttempted = true) {
     const now = new Date();
     dateEl.textContent = dayFmt.format(now);
-    checkedEl.textContent = `Last attempted check: ${timeFmt.format(now)} IST`;
+    checkedEl.textContent = networkAttempted
+      ? `Last attempted check: ${timeFmt.format(now)} IST`
+      : 'Last verified OCI health evidence expired · Awaiting next allowed check';
     setOverall('UNVERIFIED', 'warn');
     rowsEl.replaceChildren();
     for (const id of mandatory) addRow(rowLabels[id], 'NOT VERIFIED', 'warn');
@@ -85,7 +88,10 @@
     const hasCriticalFailure = mandatory.some(id=>['FAILED','STOPPED','STALE'].includes(byId.get(id)?.status));
     let label=snapshot.overall||'UNVERIFIED';
     let color='warn';
-    if (isReady) color='good';
+    if (isReady && !policy?.isMarketSession(now)) {
+      label = 'OUTSIDE SESSION'; color = 'neutral';
+    }
+    else if (isReady) color='good';
     else if (hasCriticalFailure || label==='FAILED') { label='FAILED'; color='bad'; }
     else if (label==='READY') label='UNVERIFIED';
     else if (['SESSION_COMPLETE','SCHEDULED','STARTING'].includes(label)) color='neutral';
@@ -103,7 +109,15 @@
       : 'Status is based on the OCI snapshot. Scheduled and pending checks are not failures; missing/stale evidence never shows READY.';
   }
 
+  let lastRequestAt = 0;
+  let inFlight = false;
+  let lastVerifiedAt = 0;
+  let lastMaxAge = 40000;
+
   async function poll() {
+    if (inFlight) return;
+    inFlight = true;
+    lastRequestAt = Date.now();
     try {
       const ctl=new AbortController();
       const timer=setTimeout(()=>ctl.abort(),3500);
@@ -113,13 +127,53 @@
           headers:{Accept:'application/json'}
         });
         if (!r.ok) throw Error('Health feed unavailable (HTTP '+r.status+')');
-        render(await r.json());
+        const snapshot = await r.json();
+        const parsed = Date.parse(snapshot?.checked_at_ist);
+        if (snapshot?.schema === 'ROUND42_DAILY_READINESS_R1' && Number.isFinite(parsed)) {
+          lastVerifiedAt = parsed;
+          lastMaxAge = 1000*Math.min(40, Number(snapshot.snapshot_max_age_seconds)||40);
+        }
+        render(snapshot);
       } finally {clearTimeout(timer);}
-    } catch (_err) {
-      unverified('The protected OCI health feed is not reachable through Cloudflare Pages');
-    }
+
+  } catch (_err) {
+    unverified('The protected OCI health feed is not reachable through Cloudflare Pages');
+  } finally {
+    inFlight = false;
   }
-  unverified('Checking connection to the protected OCI health feed');
-  poll();
-  setInterval(poll,10000);
+}
+
+// Update local display without making ANY request outside the NSE session.
+function localTick() {
+  const now = new Date();
+  dateEl.textContent = dayFmt.format(now);
+  if (!policy?.isMarketSession(now)) {
+    // Never leave an intraday green READY badge visible after the session ends.
+    if (badgeEl.textContent === 'READY') {
+      setOverall('POLLING PAUSED', 'neutral');
+      checkedEl.textContent = 'Market window ended · Last health state no longer live';
+      rowsEl.replaceChildren();
+      for (const id of mandatory) addRow(rowLabels[id], 'NOT CURRENT', 'neutral');
+      addRow('Plan18 P4','SHADOW','neutral');
+      noteEl.textContent = 'No automatic requests outside 09:15–15:30 IST. Reload the page manually for the latest EOD report.';
+    }
+    return;
+  }
+  if (document.hidden) return;
+  // Prevent green READY from surviving past the evidence's valid freshness.
+  if (badgeEl.textContent === 'READY' && lastVerifiedAt &&
+      (Date.now() - lastVerifiedAt > lastMaxAge)) {
+    unverified('The last verified OCI health report has expired', false);
+  }
+  if (policy.shouldAutoPoll(lastRequestAt, policy.healthRefreshMs, now, true)) {
+    void poll();
+  }
+}
+
+unverified('Checking connection to the protected OCI health feed');
+void poll(); // exactly one request at page load, even outside market hours
+setInterval(localTick, policy?.localClockMs || 10000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) localTick();
+});
 })();

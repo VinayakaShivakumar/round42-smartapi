@@ -87,7 +87,7 @@ function marketSessionPhase() {
   const mins = hh * 60 + mm;
   const tradingDay = !["Sat", "Sun"].includes(weekday);
 
-  if (!tradingDay || mins >= (15 * 60 + 40)) return "EOD / CLOSED";
+  if (!tradingDay || mins >= (15 * 60 + 30)) return "EOD / CLOSED";
   if (mins < (8 * 60 + 45)) return "PRE-MARKET";
   return null;
 }
@@ -639,13 +639,26 @@ function renderAll(){
     ? `API last responded ${t.toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST · Verify individual panels`
     : 'No live API data verified';
 }
+// ROUND42_MARKET_SESSION_POLLING_R4: no background API calls outside session.
 (async function boot(){
   setupNav();setupFilters();await loadData();refreshFilters();renderAll();
-  let polling=false;
-  setInterval(async()=>{
-    if(polling) return;
-    polling=true;
-    try {await loadData();refreshFilters();renderAll();}
-    finally {polling=false;}
-  },Math.max(5000,Number(cfg.refreshMs)||5000));
+  const policy = window.ROUND42_POLL_POLICY;
+  let polling = false;
+  let lastRequestAt = Date.now(); // count the one-time page-load fetch
+  const canPoll = () => policy?.shouldAutoPoll(
+    lastRequestAt, policy.mainRefreshMs, new Date(), !document.hidden
+  ) === true;
+  async function maybeRefresh() {
+    if (polling || !canPoll()) return;
+    polling = true;
+    lastRequestAt = Date.now();
+    try { await loadData(); refreshFilters(); renderAll(); }
+    finally { polling = false; }
+  }
+  // A LOCAL clock check, not a network request. Works across market opening/closing
+  // even when a dashboard tab is left open overnight.
+  setInterval(() => { void maybeRefresh(); }, policy?.localClockMs || 10000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void maybeRefresh();
+  });
 })();
