@@ -13,8 +13,10 @@ window.ROUND42_CONFIG = {
     profile: "/api/v1/profile",
     market: "/api/v1/market/context",
     options: "/api/v1/market/options",
-    futures: "/api/v1/market/futures"
-  }
+    futures: "/api/v1/market/futures",
+    crypto: "/api/v1/crypto"          // optional AUX crypto paper feed; never part of the 8 core routes
+  },
+  cryptoRefreshMs: 300000             // crypto reloads only on page load or when its view is opened, at most every 5 min
 };
 
 

@@ -31,6 +31,7 @@
       <button class="tab" data-view="market">Market Pulse</button>
       <button class="tab" data-view="options">Options</button>
       <button class="tab" data-view="futures">Futures</button>
+      <button class="tab" data-view="crypto">Crypto</button>
       <button class="tab" data-view="calendar">P&amp;L Calendar</button>
       <button class="tab" data-view="orders">Orders</button>
       <button class="tab" data-view="profile">Profile</button>
@@ -188,11 +189,68 @@
         </div>
       </section>
 
+      <!-- ROUND42_CRYPTO_PAPER_V1: display only; BTC paper tracker on AUX; no order authority -->
+      <section id="crypto" class="view">
+        <div class="section-head large">
+          <div><h1>Crypto · BTC Paper</h1><p>7-day breakout, 3 ATR trailing stop, 30-day pause after a big win · Delta India public data.</p></div>
+          <div class="stack-right"><span class="pill paper">PAPER</span><span id="cryptoAvail" class="pill neutral">Checking…</span></div>
+        </div>
+        <div class="info-banner" id="cryptoBanner">Paper results only. ₹ values are illustrative on a fixed paper notional; % is the strategy result. No exchange account or orders.</div>
+
+        <div class="cards six metrics-grid" id="cryptoMetrics"></div>
+
+        <div class="cards two">
+          <article class="card">
+            <div class="section-head"><div><h2>Position</h2><p>What the BTC paper tracker holds now</p></div></div>
+            <div id="cryptoPosition" class="health-list"></div>
+          </article>
+          <article class="card">
+            <div class="section-head"><div><h2>Tracker status</h2><p>Services and data freshness on AUX</p></div></div>
+            <div id="cryptoStatus" class="health-list"></div>
+          </article>
+        </div>
+
+        <div class="cards two">
+          <article class="card">
+            <div class="section-head"><div><h2>Strategy rules</h2><p>Fixed rules being forward-tested</p></div></div>
+            <div id="cryptoRules" class="health-list"></div>
+          </article>
+          <article class="card">
+            <div class="section-head">
+              <div><h2>Recent trades</h2><p>Latest closed paper trades</p></div>
+              <button class="link-button" id="cryptoToCalendar">P&amp;L calendar</button>
+            </div>
+            <div id="cryptoRecent" class="trade-list"></div>
+          </article>
+        </div>
+
+        <div class="card table-card">
+          <div class="section-head padded">
+            <div><h2>Trade ledger</h2><p>Warm-up trades are the 120-day replay at install, not forward results</p></div>
+            <label class="subtle check"><input type="checkbox" id="cryptoShowWarmup" /> Show warm-up</label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Phase</th><th>Side</th><th>Entry (bar close)</th><th>Exit bar</th><th>Hold</th><th>Gross</th><th>Fees + funding</th><th>Net %</th><th>Net ₹</th><th>Note</th></tr></thead>
+              <tbody id="cryptoTradesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="calendar" class="view">
         <div class="section-head large">
           <div><h1>P&amp;L Calendar</h1><p>Tap a trading day to inspect its orders and outcome.</p></div>
-          <div class="month-nav"><button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="nextMonth" class="icon-btn" aria-label="Next month">›</button></div>
+          <div class="stack-right">
+            <div class="seg" role="group" aria-label="Market">
+              <button class="seg-btn active" data-cal="NIFTY">NIFTY</button>
+              <button class="seg-btn" data-cal="CRYPTO">CRYPTO</button>
+            </div>
+            <div class="month-nav"><button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="nextMonth" class="icon-btn" aria-label="Next month">›</button></div>
+          </div>
         </div>
+        <!-- ROUND42_MONTHLY_TOTALS_V1: realised totals for the month on screen -->
+        <div class="cards six month-summary" id="monthSummary"></div>
         <div class="calendar-card card">
           <div class="weekday-row"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
           <div id="calendarGrid" class="calendar-grid"></div>
