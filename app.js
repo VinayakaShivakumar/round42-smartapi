@@ -557,7 +557,11 @@ async function loadData() {
 // is opened (at most every cfg.cryptoRefreshMs). No background polling.
 // ---------------------------------------------------------------------------
 let crypto = { verified:false, data:null, fetchedAt:0, error:null };
-let calMarket = 'NIFTY';
+let calMarket = 'NIFTY';               // NIFTY | BTC | ETH
+let coin = 'BTC';                      // ROUND42_CRYPTO_PAPER_V2: coin shown on the Crypto tab
+// V2 feed: BTC fields at top level (V1) + markets {BTC, ETH}. Each coin is verified on its own.
+const cm = (c = coin) => crypto.verified ? (crypto.data?.markets?.[c] || (c === 'BTC' ? crypto.data : null)) : null;
+const cOk = (c = coin) => cm(c)?.ok === true;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const pctSigned = (v, d = 2) => v == null ? '—' : `${v > 0 ? '+' : ''}${Number(v).toFixed(d)}%`;
 const usd = v => v == null ? '—' : Number(v).toLocaleString('en-IN', { maximumFractionDigits: 1 });
@@ -577,17 +581,20 @@ async function loadCrypto(force = false) {
   return true;
 }
 
-function cryptoLive() {
-  return crypto.verified ? (crypto.data.trades || []).filter(t => t.phase === 'live' && t.net_pct != null) : [];
+function cryptoLive(c = coin) {
+  return cOk(c) ? (cm(c).trades || []).filter(t => t.phase === 'live' && t.net_pct != null) : [];
 }
-function cryptoDailyRows() {
-  return crypto.verified ? (crypto.data.daily || []).map(d => ({
+function cryptoDailyRows(c = coin) {
+  return cOk(c) ? (cm(c).daily || []).map(d => ({
     date:d.session_date, net:num(d.net_inr) ?? 0, pct:num(d.net_pct) ?? 0, trades:Number(d.trades || 0)
   })) : [];
 }
 
 function renderCrypto() {
-  const d = crypto.data, ok = crypto.verified, s = d?.status || {}, p = s.position, sv = d?.services || {};
+  const d = cm(), ok = cOk(), s = d?.status || {}, p = s.position, sv = d?.services || {};
+  document.querySelectorAll('.seg-btn[data-coin]').forEach(b => b.classList.toggle('active', b.dataset.coin === coin));
+  const title = document.getElementById('cryptoTitle'); if (title) title.textContent = `Crypto · ${coin} Paper`;
+  const posSub = document.getElementById('cryptoPositionSub'); if (posSub) posSub.textContent = `What the ${coin} paper tracker holds now`;
   const avail = document.getElementById('cryptoAvail');
   if (!avail) return;
   avail.textContent = ok ? `Updated ${d.generated_at_ist} IST` : 'FEED UNAVAILABLE';
@@ -595,7 +602,7 @@ function renderCrypto() {
   const banner = document.getElementById('cryptoBanner');
   banner.textContent = ok
     ? `Paper results only. ₹ values are illustrative on a ₹${Number(d.notional_inr).toLocaleString('en-IN')} paper notional; % is the strategy result. No exchange account or orders.`
-    : `Crypto paper feed not verified${crypto.error ? ` (${crypto.error})` : ''}. NIFTY panels are unaffected. Values below are not shown until the feed responds.`;
+    : `${coin} paper feed not verified${crypto.error ? ` (${crypto.error})` : d?.error ? ` (${d.error})` : ''}. NIFTY panels are unaffected. Values below are not shown until the feed responds.`;
 
   const live = cryptoLive();
   const monthKey = istDateKey().slice(0, 7);
@@ -604,7 +611,7 @@ function renderCrypto() {
   const sumInr = a => a.reduce((x, t) => x + Number(t.net_inr || 0), 0);
   const wins = live.filter(t => t.net_pct > 0).length;
   document.getElementById('cryptoMetrics').innerHTML = [
-    metricCard('Paper notional', ok ? money(d.notional_inr) : '—', 'Illustrative, 1x BTC exposure'),
+    metricCard('Paper notional', ok ? money(d.notional_inr) : '—', `Illustrative, 1x ${coin} exposure`),
     metricCard('Open P&L', ok ? (p ? pctSigned(p.open_pnl_pct) : 'FLAT') : '—',
       ok && p ? `${money(p.open_pnl_inr)} · before costs, last 4h close` : 'No open position', ok && p ? pctClass(p.open_pnl_pct) : ''),
     metricCard('This month', ok ? money(sumInr(mLive)) : '—',
@@ -658,7 +665,13 @@ function renderCrypto() {
 
   const showWarm = document.getElementById('cryptoShowWarmup')?.checked;
   const rows = ok ? (d.trades || []).filter(t => showWarm || t.phase === 'live').slice().reverse() : [];
-  document.getElementById('cryptoTradesBody').innerHTML = rows.map(t => `<tr class="${t.phase === 'warmup' ? 'muted-row' : ''}">
+  const openRow = ok && p ? `<tr class="open-row">
+    <td>${esc(p.trade_id)}</td><td><strong>OPEN</strong></td><td>${sideBadge(p.side)}</td>
+    <td>${esc(p.entry_ts_ist)}<br><span class="subtle">${usd(p.entry_price)}</span></td>
+    <td>—<br><span class="subtle">stop ${usd(p.stop)}</span></td><td>—</td><td>${pctSigned(p.open_pnl_pct)}</td><td>—</td>
+    <td class="${p.open_pnl_pct >= 0 ? 'good' : 'bad'}"><strong>${pctSigned(p.open_pnl_pct)}</strong></td>
+    <td>${money(p.open_pnl_inr)}</td><td>Open · before costs, last 4h close</td></tr>` : '';
+  document.getElementById('cryptoTradesBody').innerHTML = openRow + rows.map(t => `<tr class="${t.phase === 'warmup' ? 'muted-row' : ''}">
     <td>${esc(t.trade_id)}</td><td>${esc(t.phase)}</td><td>${sideBadge(t.side)}</td>
     <td>${esc(t.entry_ts_ist)}<br><span class="subtle">${usd(t.entry_price)}</span></td>
     <td>${esc(t.exit_bar_ist)}<br><span class="subtle">${usd(t.exit_price)}</span></td>
@@ -666,7 +679,7 @@ function renderCrypto() {
     <td>${pctSigned((t.fees_pct || 0) + (t.funding_est_pct || 0), 3)}</td>
     <td class="${t.net_pct >= 0 ? 'good' : 'bad'}"><strong>${pctSigned(t.net_pct)}</strong></td>
     <td>${money(t.net_inr)}</td><td>${t.big_win ? `BIG WIN · pause to ${esc(t.pause_until_ist)}` : esc(t.exit_reason)}</td></tr>`).join('')
-    || `<tr><td colspan="11" class="subtle">${ok ? 'No trades yet for this filter.' : 'Crypto feed not verified.'}</td></tr>`;
+    || (openRow ? '' : `<tr><td colspan="11" class="subtle">${ok ? 'No trades yet for this filter.' : 'Crypto feed not verified.'}</td></tr>`);
 }
 
 function renderTickerStrip(){
@@ -730,8 +743,8 @@ function renderFutures(){
 // ROUND42_MONTHLY_TOTALS_V1 — the calendar shows NIFTY (₹, after charges) or CRYPTO
 // (forward paper trades by exit date; ₹ on the paper notional plus %). Totals use only
 // realised, verified rows; an unverified feed shows dashes, never zeros.
-function calendarRows(){ return calMarket==='CRYPTO' ? cryptoDailyRows() : state.daily; }
-function calendarVerified(){ return calMarket==='CRYPTO' ? crypto.verified : state.availability?.daily===true; }
+function calendarRows(){ return calMarket!=='NIFTY' ? cryptoDailyRows(calMarket) : state.daily; }
+function calendarVerified(){ return calMarket!=='NIFTY' ? cOk(calMarket) : state.availability?.daily===true; }
 function renderMonthSummary(){
   const el=document.getElementById('monthSummary'); if(!el) return;
   const y=calendarCursor.getFullYear(), m=calendarCursor.getMonth();
@@ -746,7 +759,7 @@ function renderMonthSummary(){
   const mNet=tot(mon), yNet=tot(ytd), trades=mon.reduce((s,d)=>s+Number(d.trades||0),0);
   const win=mon.filter(d=>d.net>0).length, loss=mon.filter(d=>d.net<0).length;
   const best=mon.length?mon.reduce((a,b)=>b.net>a.net?b:a):null, worst=mon.length?mon.reduce((a,b)=>b.net<a.net?b:a):null;
-  const isC=calMarket==='CRYPTO', dd=x=>x?`${x.date.slice(8)} ${label.slice(0,3)}`:'';
+  const isC=calMarket!=='NIFTY', dd=x=>x?`${x.date.slice(8)} ${label.slice(0,3)}`:'';
   el.innerHTML=[
     metricCard(`${label} total`, money(mNet), isC?`${pctSigned(totPct(mon))} · forward paper, net`:'Net realised after charges', pctClass(mNet)),
     metricCard(`${y} to date`, money(yNet), isC?`${pctSigned(totPct(ytd))} net`:`${ytd.length} trading day${ytd.length===1?'':'s'}`, pctClass(yNet)),
@@ -761,20 +774,20 @@ function renderCalendar(){
   document.querySelectorAll('.seg-btn[data-cal]').forEach(b=>b.classList.toggle('active',b.dataset.cal===calMarket));
   const first=new Date(y,m,1),firstMonIndex=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),map=new Map(calendarRows().map(d=>[d.date,d])),cells=[];
   for(let i=0;i<firstMonIndex;i++)cells.push(`<button class="day empty" tabindex="-1"></button>`);
-  for(let d=1;d<=days;d++){const key=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,x=map.get(key),net=x?.net??null; cells.push(`<button class="day ${x?"trading":""} ${selectedDate===key?"selected":""}" data-date="${key}"><span class="day-num">${d}</span>${x?`<span class="day-pnl ${net>0?"win":net<0?"loss":"flat"}">${money(net)}</span><small>${calMarket==='CRYPTO'?`<i class="cal-pct">${pctSigned(x.pct)} · </i>`:''}${x.trades} trade${x.trades===1?"":"s"}</small>`:""}</button>`);} document.getElementById("calendarGrid").innerHTML=cells.join("");
+  for(let d=1;d<=days;d++){const key=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,x=map.get(key),net=x?.net??null; cells.push(`<button class="day ${x?"trading":""} ${selectedDate===key?"selected":""}" data-date="${key}"><span class="day-num">${d}</span>${x?`<span class="day-pnl ${net>0?"win":net<0?"loss":"flat"}">${money(net)}</span><small>${calMarket!=='NIFTY'?`<i class="cal-pct">${pctSigned(x.pct)} · </i>`:''}${x.trades} trade${x.trades===1?"":"s"}</small>`:""}</button>`);} document.getElementById("calendarGrid").innerHTML=cells.join("");
   document.querySelectorAll(".day.trading").forEach(b=>b.addEventListener("click",()=>{selectedDate=b.dataset.date;renderCalendar();renderDayDetail();}));
   renderMonthSummary();
 }
 function renderCryptoDayDetail(el){
-  const d=cryptoDailyRows().find(x=>x.date===selectedDate);
-  if(!crypto.verified){el.className="card day-detail empty-state";el.textContent='Crypto paper feed not verified.';return;}
-  if(!d){el.className="card day-detail empty-state";el.textContent=`No crypto trade closed on ${selectedDate}.`;return;}
-  const trades=cryptoLive().filter(t=>t.session_date===selectedDate);
+  const c=calMarket, d=cryptoDailyRows(c).find(x=>x.date===selectedDate);
+  if(!cOk(c)){el.className="card day-detail empty-state";el.textContent=`${c} paper feed not verified.`;return;}
+  if(!d){el.className="card day-detail empty-state";el.textContent=`No ${c} trade closed on ${selectedDate}.`;return;}
+  const trades=cryptoLive(c).filter(t=>t.session_date===selectedDate);
   el.className="card day-detail";
-  el.innerHTML=`<div class="section-head"><div><h2>${esc(selectedDate)} · Crypto</h2><p>BTC paper trades closed this day (IST)</p></div><strong class="${d.net>=0?"good":"bad"}">${money(d.net)}</strong></div><div class="detail-stats"><div class="detail-stat"><span>Net %</span><strong>${pctSigned(d.pct)}</strong></div><div class="detail-stat"><span>Net ₹ (paper notional)</span><strong>${money(d.net)}</strong></div><div class="detail-stat"><span>Trades</span><strong>${d.trades}</strong></div><div class="detail-stat"><span>Big wins</span><strong>${trades.filter(t=>t.big_win).length}</strong></div></div>${trades.map(t=>`<div class="trade-item"><span class="side-badge ${t.side==='LONG'?'LONG':'SHORT'}">${t.side==='LONG'?'L':'S'}</span><div class="trade-meta"><strong>#${esc(t.trade_id)} ${esc(t.side)} · ${usd(t.entry_price)} → ${usd(t.exit_price)}</strong><span>Entered ${esc(t.entry_ts_ist)} · held ${Math.round(t.hold_hours||0)} h · ${t.big_win?`BIG WIN, pause to ${esc(t.pause_until_ist)}`:esc(t.exit_reason)}</span></div><strong class="${t.net_pct>=0?"good":"bad"}">${pctSigned(t.net_pct)}</strong></div>`).join("")}`;
+  el.innerHTML=`<div class="section-head"><div><h2>${esc(selectedDate)} · ${c}</h2><p>${c} paper trades closed this day (IST)</p></div><strong class="${d.net>=0?"good":"bad"}">${money(d.net)}</strong></div><div class="detail-stats"><div class="detail-stat"><span>Net %</span><strong>${pctSigned(d.pct)}</strong></div><div class="detail-stat"><span>Net ₹ (paper notional)</span><strong>${money(d.net)}</strong></div><div class="detail-stat"><span>Trades</span><strong>${d.trades}</strong></div><div class="detail-stat"><span>Big wins</span><strong>${trades.filter(t=>t.big_win).length}</strong></div></div>${trades.map(t=>`<div class="trade-item"><span class="side-badge ${t.side==='LONG'?'LONG':'SHORT'}">${t.side==='LONG'?'L':'S'}</span><div class="trade-meta"><strong>#${esc(t.trade_id)} ${esc(t.side)} · ${usd(t.entry_price)} → ${usd(t.exit_price)}</strong><span>Entered ${esc(t.entry_ts_ist)} · held ${Math.round(t.hold_hours||0)} h · ${t.big_win?`BIG WIN, pause to ${esc(t.pause_until_ist)}`:esc(t.exit_reason)}</span></div><strong class="${t.net_pct>=0?"good":"bad"}">${pctSigned(t.net_pct)}</strong></div>`).join("")}`;
 }
 function renderDayDetail(){
-  if(calMarket==='CRYPTO'){renderCryptoDayDetail(document.getElementById("dayDetail"));return;}
+  if(calMarket!=='NIFTY'){renderCryptoDayDetail(document.getElementById("dayDetail"));return;}
   const d=state.daily.find(x=>x.date===selectedDate),el=document.getElementById("dayDetail"); if(!d){el.className="card day-detail empty-state";el.innerHTML=`No trading record for ${selectedDate}.`;return;}
   const trades=state.trades.filter(t=>t.date===selectedDate); el.className="card day-detail"; el.innerHTML=`<div class="section-head"><div><h2>${selectedDate}</h2><p>Daily realised result</p></div><strong class="${d.net>=0?"good":"bad"}">${money(d.net)}</strong></div><div class="detail-stats"><div class="detail-stat"><span>Gross</span><strong>${money(d.gross)}</strong></div><div class="detail-stat"><span>Charges</span><strong>${money(d.charges)}</strong></div><div class="detail-stat"><span>Net</span><strong>${money(d.net)}</strong></div><div class="detail-stat"><span>Trades</span><strong>${d.trades}</strong></div></div>${trades.map(t=>`<div class="trade-item"><span class="side-badge ${t.side}">${t.side}</span><div class="trade-meta"><strong>${t.symbol}</strong><span>${t.entryTime} @ ${t.entry} → ${t.exitTime} @ ${t.exit} · ${t.exitReason}</span></div><strong class="${t.net>=0?"good":"bad"}">${money(t.net)}</strong></div>`).join("")||`<div class="subtle">No trades.</div>`}`;
 }
@@ -796,11 +809,12 @@ function setupCrypto(){
   document.querySelector('.tab[data-view="crypto"]')?.addEventListener('click',()=>{ void refreshIfStale(); });
   document.querySelectorAll('.seg-btn[data-cal]').forEach(b=>b.addEventListener('click',()=>{
     calMarket=b.dataset.cal; renderCalendar(); renderDayDetail();
-    if(calMarket==='CRYPTO') void refreshIfStale();
+    if(calMarket!=='NIFTY') void refreshIfStale();
   }));
   document.getElementById('cryptoShowWarmup')?.addEventListener('change',renderCrypto);
+  document.querySelectorAll('.seg-btn[data-coin]').forEach(b=>b.addEventListener('click',()=>{ coin=b.dataset.coin; renderCrypto(); }));
   document.getElementById('cryptoToCalendar')?.addEventListener('click',()=>{
-    calMarket='CRYPTO'; document.querySelector('.tab[data-view="calendar"]').click(); renderCalendar(); renderDayDetail();
+    calMarket=coin; document.querySelector('.tab[data-view="calendar"]').click(); renderCalendar(); renderDayDetail();
   });
 }
 function renderAll(){

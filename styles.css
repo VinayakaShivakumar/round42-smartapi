@@ -34,3 +34,6 @@
 .seg{display:inline-flex;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px}.seg-btn{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:8px;font-weight:800;font-size:.78rem;letter-spacing:.04em}.seg-btn.active{background:var(--panel-2);color:var(--text)}.month-summary .metric strong{font-size:1.2rem}.side-badge.LONG{background:rgba(55,214,122,.14);color:var(--good)}.side-badge.SHORT{background:rgba(255,107,107,.12);color:#ff9ca3}.muted-row td{opacity:.55}.check{display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}#crypto .info-banner{color:var(--muted)}
 @media(max-width:780px){#calendar .section-head.large{flex-direction:column;align-items:flex-start}#calendar .stack-right{justify-content:flex-start}}
 .cal-pct{font-style:normal}@media(max-width:430px){.cal-pct{display:none}}
+/* ROUND42_CRYPTO_PAPER_V2 */
+.open-row td{background:rgba(79,140,255,.06)}#crypto .section-head.large .stack-right{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:780px){#crypto .section-head.large{flex-direction:column;align-items:flex-start}#crypto .section-head.large .stack-right{justify-content:flex-start}}

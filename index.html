@@ -189,11 +189,14 @@
         </div>
       </section>
 
-      <!-- ROUND42_CRYPTO_PAPER_V1: display only; BTC paper tracker on AUX; no order authority -->
+      <!-- ROUND42_CRYPTO_PAPER_V2: display only; BTC + ETH paper trackers on AUX; no order authority -->
       <section id="crypto" class="view">
         <div class="section-head large">
-          <div><h1>Crypto · BTC Paper</h1><p>7-day breakout, 3 ATR trailing stop, 30-day pause after a big win · Delta India public data.</p></div>
-          <div class="stack-right"><span class="pill paper">PAPER</span><span id="cryptoAvail" class="pill neutral">Checking…</span></div>
+          <div><h1 id="cryptoTitle">Crypto · BTC Paper</h1><p>7-day breakout, 3 ATR trailing stop, 30-day pause after a big win · Delta India public data.</p></div>
+          <div class="stack-right">
+            <div class="seg" role="group" aria-label="Coin"><button class="seg-btn active" data-coin="BTC">BTC</button><button class="seg-btn" data-coin="ETH">ETH</button></div>
+            <span class="pill paper">PAPER</span><span id="cryptoAvail" class="pill neutral">Checking…</span>
+          </div>
         </div>
         <div class="info-banner" id="cryptoBanner">Paper results only. ₹ values are illustrative on a fixed paper notional; % is the strategy result. No exchange account or orders.</div>
 
@@ -201,7 +204,7 @@
 
         <div class="cards two">
           <article class="card">
-            <div class="section-head"><div><h2>Position</h2><p>What the BTC paper tracker holds now</p></div></div>
+            <div class="section-head"><div><h2>Position</h2><p id="cryptoPositionSub">What the BTC paper tracker holds now</p></div></div>
             <div id="cryptoPosition" class="health-list"></div>
           </article>
           <article class="card">
@@ -244,7 +247,8 @@
           <div class="stack-right">
             <div class="seg" role="group" aria-label="Market">
               <button class="seg-btn active" data-cal="NIFTY">NIFTY</button>
-              <button class="seg-btn" data-cal="CRYPTO">CRYPTO</button>
+              <button class="seg-btn" data-cal="BTC">BTC</button>
+              <button class="seg-btn" data-cal="ETH">ETH</button>
             </div>
             <div class="month-nav"><button id="prevMonth" class="icon-btn" aria-label="Previous month">‹</button><strong id="monthLabel"></strong><button id="nextMonth" class="icon-btn" aria-label="Next month">›</button></div>
           </div>
